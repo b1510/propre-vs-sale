@@ -1,4 +1,4 @@
-import { ROOMS, getMapBounds, KEY_POSITION } from '../level/LevelData.js';
+import { getMapBounds } from '../level/LevelData.js';
 
 // HUD : vie, compteur de pièces, nom de pièce, barre boss, flash dégâts,
 // message flottant, minimap top-down.
@@ -11,17 +11,34 @@ export default class UI {
     this.damageFlash = document.getElementById('damageFlash');
     this.bossBar = document.getElementById('bossBar');
     this.bossFill = document.getElementById('bossFill');
+    this.bossLabel = document.getElementById('bossLabel');
     this.floatMsg = document.getElementById('floatMsg');
+    this.inventoryHud = document.getElementById('inventoryHud');
+    this.boostHud = document.getElementById('boostHud');
 
     this.minimap = document.getElementById('minimap');
     this.mmCtx = this.minimap.getContext('2d');
 
-    this.bounds = getMapBounds();
-    this._computeMinimapTransform();
+    // Données du niveau courant (renseignées par setLevel).
+    this.rooms = {};
+    this.keyPosition = { x: 0, y: 0, z: 0 };
+    this.bossRoom = null;
 
     this._roomNameTimer = 0;
     this._flashTimer = 0;
     this._floatTimer = 0;
+  }
+
+  // Configure la minimap et le HUD pour le niveau donné.
+  setLevel(config) {
+    this.rooms = config.rooms;
+    this.keyPosition = config.keyPosition;
+    this.bossRoom = config.bossRoom;
+    this.bounds = getMapBounds(config.rooms);
+    this._computeMinimapTransform();
+    if (this.bossLabel && config.bossLabel) {
+      this.bossLabel.textContent = config.bossLabel;
+    }
   }
 
   _computeMinimapTransform() {
@@ -73,6 +90,28 @@ export default class UI {
     this.bossBar.style.display = v ? 'block' : 'none';
   }
 
+  // Affiche les consommables possédés (inventaire de boutique).
+  setInventory(inv) {
+    const lines = [];
+    if (inv.heal > 0) lines.push(`[1] Soin ×${inv.heal}`);
+    if (inv.damage > 0) lines.push(`[2] Boost dégâts ×${inv.damage}`);
+    if (lines.length === 0) {
+      this.inventoryHud.innerHTML = '<span class="empty">Inventaire vide</span>';
+    } else {
+      this.inventoryHud.innerHTML = lines.join('<br>');
+    }
+  }
+
+  // Indicateur du boost de dégâts actif (secondes restantes).
+  setBoost(secondsRemaining) {
+    if (secondsRemaining > 0) {
+      this.boostHud.style.display = 'block';
+      this.boostHud.textContent = `⚡ Boost dégâts : ${secondsRemaining.toFixed(0)} s`;
+    } else {
+      this.boostHud.style.display = 'none';
+    }
+  }
+
   setBossHealth(hp, maxHp) {
     const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
     this.bossFill.style.width = pct + '%';
@@ -99,14 +138,14 @@ export default class UI {
     ctx.clearRect(0, 0, 150, 150);
 
     // Pièces.
-    for (const name in ROOMS) {
-      const r = ROOMS[name];
+    for (const name in this.rooms) {
+      const r = this.rooms[name];
       const a = this._toMM(r.minX, r.minZ);
       const b = this._toMM(r.maxX, r.maxZ);
       const w = b.px - a.px;
       const h = b.py - a.py;
 
-      if (name === 'grenier') {
+      if (name === this.bossRoom) {
         ctx.fillStyle = visitedRooms.has(name) ? '#5a2a2a' : '#2a1414';
       } else {
         ctx.fillStyle = visitedRooms.has(name) ? '#9aa0a6' : '#3a3d42';
@@ -119,7 +158,7 @@ export default class UI {
 
     // Clé (si non ramassée).
     if (!keyCollected) {
-      const k = this._toMM(KEY_POSITION.x, KEY_POSITION.z);
+      const k = this._toMM(this.keyPosition.x, this.keyPosition.z);
       ctx.fillStyle = '#ffd54a';
       ctx.beginPath();
       ctx.arc(k.px, k.py, 3, 0, Math.PI * 2);

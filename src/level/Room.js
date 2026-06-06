@@ -112,6 +112,16 @@ export default class Room {
     const { minX, maxX, minZ, maxZ } = this.def;
     const cx = this.cx, cz = this.cz;
 
+    // Niveau 2 — dispatch par type de pièce (noms partagés entre 5 salles
+    // machines, 3 salles dangereuses, 2 toilettes).
+    if (this.name.startsWith('machines'))   { this._furnishMachines(ab); return; }
+    if (this.name.startsWith('dangereuse')) { this._furnishBroyeur(ab); return; }
+    if (this.name === 'sucree')             { this._furnishSucree(ab); return; }
+    if (this.name === 'pause')              { this._furnishPause(ab); return; }
+    if (this.name.startsWith('toilettes') && this.name !== 'toilettes') {
+      this._furnishToilet(ab); return;
+    }
+
     switch (this.name) {
       case 'hall': {
         // Console murale nord
@@ -339,5 +349,163 @@ export default class Room {
         break;
       }
     }
+  }
+
+  // --- Helpers de formes (cylindres / cônes) pour le décor du niveau 2 ---
+  _addCyl(rTop, rBot, h, x, y, z, color, rough = 0.7) {
+    const m = new THREE.Mesh(
+      new THREE.CylinderGeometry(rTop, rBot, h, 12),
+      new THREE.MeshStandardMaterial({ color, roughness: rough })
+    );
+    m.position.set(x, y, z);
+    m.castShadow = true;
+    this.group.add(m);
+    return m;
+  }
+
+  _addCone(r, h, x, y, z, color, flip = false) {
+    const m = new THREE.Mesh(
+      new THREE.ConeGeometry(r, h, 12),
+      new THREE.MeshStandardMaterial({ color, roughness: 0.7 })
+    );
+    m.position.set(x, y, z);
+    if (flip) m.rotation.x = Math.PI;
+    m.castShadow = true;
+    this.group.add(m);
+    return m;
+  }
+
+  // Salle des machines : machines à glace + comptoir de cornets.
+  // La salle 'machines2' porte en plus la machine sur laquelle est posée la clé.
+  _furnishMachines(ab) {
+    const { minZ, maxZ } = this.def;
+    const cx = this.cx, cz = this.cz;
+
+    const iceMachine = (mx, mz, color) => {
+      ab(0.9, 1.4, 0.7, mx, 0.7, mz, color);              // corps inox
+      ab(0.96, 0.18, 0.76, mx, 1.5, mz, 0xb0bec5);        // capot
+      ab(0.12, 0.22, 0.12, mx - 0.2, 0.92, mz + 0.4, 0xcfd8dc); // bec g
+      ab(0.12, 0.22, 0.12, mx + 0.2, 0.92, mz + 0.4, 0xcfd8dc); // bec d
+      ab(0.74, 0.05, 0.32, mx, 0.56, mz + 0.42, 0x607d8b); // bac d'égouttage
+      // Glace à l'italienne qui sort du bec.
+      this._addCone(0.12, 0.34, mx, 0.78, mz + 0.42, 0xfff8e1, true);
+    };
+
+    iceMachine(cx - 2.8, minZ + 0.7, 0xeceff1);
+    iceMachine(cx + 2.8, minZ + 0.7, 0xeceff1);
+
+    // Comptoir + cornets empilés.
+    ab(2.4, 0.85, 0.6, cx, 0.42, maxZ - 0.7, 0xb0855a);
+    for (let i = 0; i < 4; i++) {
+      const x = cx - 0.9 + i * 0.6;
+      this._addCone(0.14, 0.4, x, 1.05, maxZ - 0.7, 0xd7a86e, false); // cornet
+      this._addCyl(0.13, 0.13, 0.14, x, 1.3, maxZ - 0.7, 0xfff3e0);   // boule de glace
+    }
+
+    // Machine porteuse de la clé (salle machines2, alignée sur keyPosition).
+    if (this.name === 'machines2') {
+      ab(0.9, 1.0, 0.7, 6, 0.5, 14, 0x42a5f5);     // corps bleu mis en avant
+      ab(0.98, 0.12, 0.78, 6, 1.0, 14, 0xb0bec5);  // plateau (la clé flotte au-dessus)
+      ab(0.14, 0.24, 0.14, 6, 0.78, 14.45, 0xcfd8dc);
+    }
+  }
+
+  // Salle dangereuse : broyeurs industriels (décor uniquement).
+  _furnishBroyeur(ab) {
+    const { minX, maxX, minZ } = this.def;
+    const cx = this.cx, cz = this.cz;
+
+    const broyeur = (mx, mz) => {
+      ab(1.7, 0.12, 1.5, mx, 0.06, mz, 0xffb300);  // socle jaune (danger)
+      ab(1.5, 1.1, 1.3, mx, 0.67, mz, 0x546e7a);   // corps métal
+      ab(1.3, 0.45, 1.1, mx, 1.4, mz, 0x37474f);   // trémie
+      // Bandes de danger (jaune).
+      ab(1.54, 0.16, 0.06, mx, 0.55, mz + 0.66, 0xffca28);
+      ab(1.54, 0.16, 0.06, mx, 0.9, mz + 0.66, 0xffca28);
+      // Lame visible dans la trémie.
+      this._addCyl(0.5, 0.5, 0.08, mx, 1.18, mz, 0x90a4ae, 0.3);
+    };
+
+    // La salle du boss garde de l'espace : un seul broyeur dans un coin.
+    if (this.name === 'dangereuse3') {
+      broyeur(minX + 1.6, minZ + 1.6);
+    } else {
+      broyeur(cx - 2.2, minZ + 1.8);
+      broyeur(cx + 2.2, minZ + 1.8);
+      ab(0.3, 1.1, maxX - minX - 1.5, maxX - 0.4, 0.55, cz, 0x455a64); // convoyeur mural
+    }
+  }
+
+  // Salle sucrée : conteneurs de sucre + cannes à sucre.
+  _furnishSucree(ab) {
+    const { minX, maxX, minZ, maxZ } = this.def;
+    const cx = this.cx, cz = this.cz;
+
+    // Conteneurs de sucre empilés.
+    ab(1.1, 1.0, 1.1, minX + 1.3, 0.5, minZ + 1.4, 0xfff8e1);
+    ab(1.1, 1.0, 1.1, minX + 2.6, 0.5, minZ + 1.4, 0xffecb3);
+    ab(1.1, 0.9, 1.1, minX + 1.3, 1.45, minZ + 1.4, 0xfff3e0); // empilé
+    // Petit tas de sucre versé (cône blanc).
+    this._addCone(0.5, 0.5, minX + 2.6, 1.25, minZ + 1.4, 0xfafafa, false);
+
+    // Sacs de sucre côté est.
+    ab(0.9, 0.6, 0.7, maxX - 0.9, 0.3, minZ + 1.0, 0xf5f5dc);
+    ab(0.9, 0.6, 0.7, maxX - 0.9, 0.3, minZ + 1.9, 0xeee8aa);
+
+    // Cannes à sucre (tiges segmentées vert/jaune) dans un bac.
+    ab(1.4, 0.4, 0.8, cx, 0.2, maxZ - 1.0, 0x6d4c41); // bac
+    for (let i = 0; i < 6; i++) {
+      const x = cx - 0.5 + (i % 3) * 0.5;
+      const z = maxZ - 1.2 + Math.floor(i / 3) * 0.4;
+      const tilt = (i - 3) * 0.05;
+      const stalk = this._addCyl(0.05, 0.06, 1.7, x, 1.05, z,
+        i % 2 ? 0x9ccc65 : 0xcddc39);
+      stalk.rotation.z = tilt;
+    }
+  }
+
+  // Salle de pause : table, bancs, distributeur, machine à café.
+  _furnishPause(ab) {
+    const { minX, maxX, minZ } = this.def;
+    const cx = this.cx, cz = this.cz;
+
+    // Table à l'écart du point de spawn (vers le nord de la pièce).
+    const tz = cz + 3;
+    ab(1.9, 0.06, 0.9, cx, 0.75, tz, 0xd7ccc8);
+    ab(0.07, 0.72, 0.07, cx - 0.85, 0.38, tz - 0.35, 0x8d6e63);
+    ab(0.07, 0.72, 0.07, cx + 0.85, 0.38, tz - 0.35, 0x8d6e63);
+    ab(0.07, 0.72, 0.07, cx - 0.85, 0.38, tz + 0.35, 0x8d6e63);
+    ab(0.07, 0.72, 0.07, cx + 0.85, 0.38, tz + 0.35, 0x8d6e63);
+    // Bancs.
+    ab(1.9, 0.12, 0.4, cx, 0.42, tz - 0.85, 0x8d6e63);
+    ab(1.9, 0.12, 0.4, cx, 0.42, tz + 0.85, 0x8d6e63);
+    // Tasses sur la table.
+    this._addCyl(0.07, 0.06, 0.12, cx - 0.5, 0.84, tz, 0xffffff);
+    this._addCyl(0.07, 0.06, 0.12, cx + 0.4, 0.84, tz - 0.2, 0xef9a9a);
+
+    // Distributeur (machine rouge) dans un coin.
+    ab(0.9, 1.9, 0.7, minX + 0.7, 0.95, minZ + 0.7, 0xc62828);
+    ab(0.66, 1.1, 0.05, minX + 0.7, 1.2, minZ + 0.36, 0x101418); // vitrine
+
+    // Machine à café.
+    ab(0.55, 0.45, 0.4, maxX - 0.6, 1.05, minZ + 0.6, 0x37474f);
+    ab(0.55, 0.6, 0.4, maxX - 0.6, 0.5, minZ + 0.6, 0x546e7a); // meuble support
+  }
+
+  // Toilettes (niveau 2) : décor sanitaire, calqué sur le niveau 1.
+  _furnishToilet(ab) {
+    const { minZ, maxX, maxZ } = this.def;
+    const cx = this.cx;
+    const twcx = cx + 2;
+    const twcz = maxZ - 0.9;
+    ab(0.68, 0.44, 0.78, twcx, 0.22, twcz, 0xf0f4f8);          // cuvette
+    ab(0.62, 0.06, 0.70, twcx, 0.47, twcz, 0xffffff);          // abattant
+    ab(0.60, 0.28, 0.22, twcx, 0.56, maxZ - 0.22, 0xf0f4f8);   // réservoir
+    ab(0.12, 0.06, 0.12, twcx, 0.71, maxZ - 0.14, 0xb0bec5);   // bouton
+    ab(0.62, 0.22, 0.46, maxX - 1.1, 0.84, minZ + 0.4, 0xffffff); // lavabo
+    ab(0.08, 0.76, 0.08, maxX - 0.88, 0.38, minZ + 0.36, 0xb0bec5);
+    ab(0.08, 0.76, 0.08, maxX - 1.32, 0.38, minZ + 0.36, 0xb0bec5);
+    ab(0.06, 0.68, 0.58, maxX - 0.06, 1.38, minZ + 0.5, 0xb0bec5); // miroir
+    ab(0.16, 0.16, 0.16, twcx + 0.52, 0.70, twcz - 0.28, 0xfafafa); // PQ
   }
 }

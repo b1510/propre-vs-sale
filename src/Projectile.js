@@ -7,6 +7,7 @@ const PROFILES = {
   caca:    { radius: 0.15, color: 0x6B3A2A, speed: 8, damage: 6 },
   poussiere:{ radius: 0.12, color: 0x888888, speed: 7, damage: 5 },
   viande:  { radius: 0.20, color: 0x8B0000, speed: 9, damage: 10 },
+  boule_de_feu: { radius: 0.24, color: 0xff5500, speed: 9, damage: 11 },
 };
 
 export default class Projectile {

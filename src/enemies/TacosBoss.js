@@ -1,13 +1,13 @@
 import * as THREE from 'three';
 import Enemy, { STATE } from './Enemy.js';
 
-// Boss Tacos : 300 HP. Attaque longue portée (viande, 15 dmg, cd 1.5s)
+// Boss Tacos : 80 HP. Attaque longue portée (viande, 15 dmg, cd 1.5s)
 // et attaque mêlée (baffe, 20 dmg, cd 1s) si le joueur est à moins de 3u.
 
 export default class TacosBoss extends Enemy {
   constructor(x, z) {
     super({
-      hp: 200,
+      hp: 80,
       speed: 1.5,
       sightRange: 30,
       attackRange: 22,

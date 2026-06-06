@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>Propre vs Sale</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -120,6 +120,74 @@
     .fullscreen button.secondary:hover { background: #607d8b; }
     #gameOverScreen h1 { color: #ef5350; }
     #victoryScreen h1 { color: #66bb6a; }
+    #shopScreen h1 { color: #ffd54a; }
+
+    /* Boutique */
+    #shopCoins { font-size: 26px; color: #ffd54a; font-weight: bold; margin-bottom: 18px; }
+    #shopItems {
+      display: flex; flex-direction: column; gap: 12px;
+      width: 560px; max-width: 90vw; margin-bottom: 28px;
+    }
+    .shop-item {
+      display: flex; align-items: center; gap: 16px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 8px; padding: 12px 16px; text-align: left;
+    }
+    .shop-item .info { flex: 1; }
+    .shop-item .name { font-size: 18px; font-weight: 600; color: #fff; }
+    .shop-item .desc { font-size: 14px; color: #b0bec5; margin-top: 2px; }
+    .shop-item .owned { font-size: 13px; color: #81d4fa; margin-top: 2px; }
+    .shop-item button {
+      pointer-events: auto; cursor: pointer; flex-shrink: 0;
+      font-size: 16px; font-weight: bold; padding: 10px 18px; margin: 0;
+      border: none; border-radius: 6px; background: #ffd54a; color: #3e2723;
+      min-width: 110px;
+    }
+    .shop-item button:hover:not(:disabled) { background: #ffe082; }
+    .shop-item button:disabled { background: #555; color: #999; cursor: not-allowed; }
+
+    /* HUD inventaire (consommables) */
+    #inventoryHud {
+      left: 24px; bottom: 64px; color: #fff; font-size: 15px;
+      text-shadow: 0 1px 3px #000; line-height: 1.5;
+    }
+    #inventoryHud .empty { color: #90a4ae; font-style: italic; }
+    #boostHud {
+      left: 24px; bottom: 132px; color: #ffca28; font-size: 16px; font-weight: bold;
+      text-shadow: 0 1px 3px #000; display: none;
+    }
+
+    /* Contrôles tactiles (mobile) — masqués par défaut, affichés en jeu sur tactile */
+    #touchControls { position: fixed; inset: 0; z-index: 20; pointer-events: none; display: none; }
+    body.touch #touchControls.active { display: block; }
+    #touchControls * { touch-action: none; -webkit-user-select: none; user-select: none; }
+
+    #touchLook {
+      position: absolute; right: 0; top: 0; width: 58%; height: 100%;
+      pointer-events: auto;
+    }
+    #joystick {
+      position: absolute; left: 26px; bottom: 96px; width: 140px; height: 140px;
+      border-radius: 50%; background: rgba(255,255,255,0.10);
+      border: 2px solid rgba(255,255,255,0.30); pointer-events: auto;
+    }
+    #joystickKnob {
+      position: absolute; left: 50%; top: 50%; width: 60px; height: 60px;
+      transform: translate(-50%, -50%); border-radius: 50%;
+      background: rgba(255,255,255,0.35);
+    }
+    .touch-btn {
+      position: absolute; pointer-events: auto;
+      width: 76px; height: 76px; border-radius: 50%;
+      background: rgba(255,255,255,0.16); border: 2px solid rgba(255,255,255,0.35);
+      color: #fff; font-size: 30px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #btnAttack { right: 30px;  bottom: 120px; width: 100px; height: 100px;
+      background: rgba(244,67,54,0.30); border-color: rgba(255,138,128,0.6); }
+    #btnJump  { right: 146px; bottom: 70px; }
+    #btnHeal  { right: 150px; bottom: 200px; background: rgba(102,187,106,0.28); }
+    #btnBoost { right: 40px;  bottom: 240px; background: rgba(255,202,40,0.28); }
   </style>
 </head>
 <body>
@@ -138,11 +206,13 @@
   <canvas id="minimap" class="hud" width="150" height="150"></canvas>
 
   <div id="bossBar" class="hud">
-    <div class="label">BOSS TACOS</div>
+    <div class="label" id="bossLabel">BOSS TACOS</div>
     <div class="track"><div id="bossFill"></div></div>
   </div>
 
   <div id="floatMsg" class="hud"></div>
+  <div id="boostHud" class="hud"></div>
+  <div id="inventoryHud" class="hud"></div>
 
   <div id="menuScreen" class="fullscreen">
     <h1><span class="accent-clean">Propre</span> vs <span class="accent-dirty">Sale</span></h1>
@@ -161,6 +231,14 @@
     <h1>Victoire !</h1>
     <p id="victoryInfo">La villa est propre !</p>
     <button id="btnRestartWin">REJOUER</button>
+  </div>
+
+  <div id="shopScreen" class="fullscreen hidden">
+    <h1>Boutique</h1>
+    <p>Dépense tes pièces avant d'affronter la suite.</p>
+    <div id="shopCoins">🪙 0</div>
+    <div id="shopItems"></div>
+    <button id="btnShopContinue">CONTINUER →</button>
   </div>
 
   <script type="module" src="/src/main.js"></script>

@@ -17,6 +17,11 @@ export default class SoundManager {
     try { this[`_${name}`]?.(); } catch (_) {}
   }
 
+  // À appeler depuis un geste utilisateur (tap/clic) pour débloquer l'audio mobile.
+  resume() {
+    try { this._ctx_(); } catch (_) {}
+  }
+
   // Générateur de bruit blanc court.
   _noiseBuf(ctx, dur) {
     const n = Math.ceil(ctx.sampleRate * dur);

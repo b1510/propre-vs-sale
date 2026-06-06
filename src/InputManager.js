@@ -27,6 +27,12 @@ export default class InputManager {
     this.gpJump   = false;  // front montant bouton A
     this.gpSprint = false;  // bouton B enfoncé
 
+    // État tactile (mis à jour par TouchControls)
+    this.touchMove = { x: 0, y: 0 }; // joystick gauche (-1..1, y vers le haut = négatif)
+    this.touchLookDX = 0;            // delta regard (pixels) accumulé
+    this.touchLookDY = 0;
+    this.touchJump = false;          // bouton saut tactile maintenu
+
     this._prevGpJump   = false;
     this._prevGpAttack = false;
     this._connectedGp  = null; // référence directe à la manette connectée
@@ -84,6 +90,16 @@ export default class InputManager {
     this.mouseDX = 0; this.mouseDY = 0;
     return d;
   }
+
+  // Delta de regard tactile accumulé depuis la dernière frame.
+  consumeTouchLook() {
+    const d = { x: this.touchLookDX, y: this.touchLookDY };
+    this.touchLookDX = 0; this.touchLookDY = 0;
+    return d;
+  }
+
+  // Déclenche une attaque depuis une commande tactile (front montant).
+  triggerAttack() { this.leftJustPressed = true; }
 
   // Retourne et efface le front montant attaque (clic ou bouton manette).
   consumeLeftClick() {

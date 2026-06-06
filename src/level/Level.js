@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import Room from './Room.js';
-import { ROOMS, DOORS, getDoorwayRect, WALL_THICKNESS } from './LevelData.js';
+import { getDoorwayRect, WALL_THICKNESS } from './LevelData.js';
 
 // Test d'intersection segment 2D vs AABB (méthode des dalles).
 function _segAABB(x0, z0, dx, dz, box) {
@@ -29,8 +29,11 @@ function _segAABB(x0, z0, dx, dz, box) {
 // (AABB pièces + doorways) et pour l'IA (wall colliders).
 
 export default class Level {
-  constructor(scene) {
+  constructor(scene, config) {
     this.scene = scene;
+    this.config = config;
+    this.ROOMS = config.rooms;
+    this.DOORS = config.doors;
     this.group = new THREE.Group();
     this.rooms = {};
     this.wallColliders = [];      // pour l'IA des ennemis
@@ -45,8 +48,8 @@ export default class Level {
 
   _build() {
     // Crée les pièces.
-    for (const name in ROOMS) {
-      const room = new Room(name, ROOMS[name]);
+    for (const name in this.ROOMS) {
+      const room = new Room(name, this.ROOMS[name]);
       room.addLight();
       room.addFurniture();
       this.rooms[name] = room;
@@ -54,16 +57,16 @@ export default class Level {
     }
 
     // Construit les murs périmétriques de chaque pièce avec ouvertures.
-    for (const name in ROOMS) {
+    for (const name in this.ROOMS) {
       const room = this.rooms[name];
       const d = room.def;
 
       // Récupère les portes affectant chaque côté de cette pièce.
-      const doorsOnX = (atX) => DOORS.filter(
+      const doorsOnX = (atX) => this.DOORS.filter(
         (dr) => dr.orient === 'x' && Math.abs(dr.at - atX) < 0.001 &&
           (dr.roomA === name || dr.roomB === name)
       );
-      const doorsOnZ = (atZ) => DOORS.filter(
+      const doorsOnZ = (atZ) => this.DOORS.filter(
         (dr) => dr.orient === 'z' && Math.abs(dr.at - atZ) < 0.001 &&
           (dr.roomA === name || dr.roomB === name)
       );
@@ -79,7 +82,7 @@ export default class Level {
     }
 
     // Doorways walkables (et portes verrouillées).
-    for (const door of DOORS) {
+    for (const door of this.DOORS) {
       const rect = getDoorwayRect(door);
       if (door.locked) {
         this.doorways.push({ rect, locked: true, id: door.id });
@@ -189,7 +192,8 @@ export default class Level {
     tooth.position.set(0, -0.06, 0.34);
     group.add(tooth);
 
-    group.position.set(19.5, 0.95, 4);
+    const kp = this.config.keyPosition;
+    group.position.set(kp.x, kp.y, kp.z);
     this.keyMesh = group;
     this.group.add(group);
   }
@@ -294,7 +298,8 @@ export default class Level {
   update(delta) {
     if (this.keyMesh) {
       this.keyMesh.rotation.y += delta * 2;
-      this.keyMesh.position.y = 0.95 + Math.sin(performance.now() * 0.003) * 0.06;
+      this.keyMesh.position.y =
+        this.config.keyPosition.y + Math.sin(performance.now() * 0.003) * 0.06;
     }
   }
 }
