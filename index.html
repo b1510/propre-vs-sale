@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Propre vs Sale</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; font-family: 'Segoe UI', Arial, sans-serif; }
+    #app { position: fixed; inset: 0; }
+    canvas { display: block; }
+
+    .hud { position: fixed; pointer-events: none; user-select: none; z-index: 10; }
+
+    /* Barre de vie */
+    #healthBar {
+      left: 24px; bottom: 24px; width: 260px;
+    }
+    #healthBar .label { color: #fff; font-size: 14px; margin-bottom: 4px; text-shadow: 0 1px 3px #000; }
+    #healthBar .track {
+      width: 100%; height: 22px; background: rgba(0,0,0,0.55);
+      border: 2px solid rgba(255,255,255,0.5); border-radius: 4px; overflow: hidden;
+    }
+    #healthFill {
+      height: 100%; width: 100%;
+      background: linear-gradient(90deg, #d33 0%, #f55 100%);
+      transition: width 0.15s ease;
+    }
+
+    /* Compteur de pièces */
+    #coinCounter {
+      right: 24px; top: 18px;
+      color: #ffd54a; font-size: 26px; font-weight: bold;
+      text-shadow: 0 2px 4px #000;
+    }
+
+    /* Nom de la pièce */
+    #roomName {
+      top: 16px; left: 50%; transform: translateX(-50%);
+      color: #fff; font-size: 22px; font-weight: 600;
+      text-shadow: 0 2px 5px #000; opacity: 0;
+      transition: opacity 0.4s ease; letter-spacing: 1px;
+    }
+
+    /* Crosshair */
+    #crosshair {
+      top: 50%; left: 50%; transform: translate(-50%, -50%);
+      width: 22px; height: 22px;
+    }
+    #crosshair::before, #crosshair::after {
+      content: ''; position: absolute; background: rgba(255,255,255,0.85);
+    }
+    #crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
+    #crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+
+    /* Minimap */
+    #minimap {
+      right: 18px; bottom: 18px; width: 150px; height: 150px;
+      background: rgba(0,0,0,0.55); border: 2px solid rgba(255,255,255,0.4);
+      border-radius: 4px;
+    }
+
+    /* Flash dégâts */
+    #damageFlash {
+      position: fixed; inset: 0; z-index: 9; pointer-events: none;
+      background: radial-gradient(ellipse at center, rgba(255,0,0,0) 40%, rgba(200,0,0,0.55) 100%);
+      opacity: 0; transition: opacity 0.12s ease;
+    }
+
+    /* Barre de vie boss */
+    #bossBar {
+      top: 54px; left: 50%; transform: translateX(-50%);
+      width: 420px; display: none;
+    }
+    #bossBar .label {
+      color: #ff7043; font-size: 16px; font-weight: bold;
+      text-align: center; margin-bottom: 4px; text-shadow: 0 1px 4px #000;
+    }
+    #bossBar .track {
+      width: 100%; height: 18px; background: rgba(0,0,0,0.6);
+      border: 2px solid #ff7043; border-radius: 4px; overflow: hidden;
+    }
+    #bossFill {
+      height: 100%; width: 100%;
+      background: linear-gradient(90deg, #b71c1c 0%, #ff7043 100%);
+      transition: width 0.15s ease;
+    }
+
+    /* Message flottant */
+    #floatMsg {
+      top: 38%; left: 50%; transform: translateX(-50%);
+      color: #fff; font-size: 22px; font-weight: 600;
+      text-shadow: 0 2px 6px #000; background: rgba(0,0,0,0.5);
+      padding: 10px 22px; border-radius: 6px;
+      opacity: 0; transition: opacity 0.3s ease; text-align: center;
+    }
+
+    /* Écrans plein écran (menu / game over / victoire) */
+    .fullscreen {
+      position: fixed; inset: 0; z-index: 50;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: #07080c; color: #fff; text-align: center;
+    }
+    .fullscreen.hidden { display: none; }
+    .fullscreen h1 {
+      font-size: 64px; letter-spacing: 4px; margin-bottom: 12px;
+      text-transform: uppercase;
+    }
+    .fullscreen .accent-clean { color: #4fc3f7; }
+    .fullscreen .accent-dirty { color: #8d6e63; }
+    .fullscreen p { font-size: 20px; color: #b0bec5; margin-bottom: 36px; }
+    .fullscreen button {
+      pointer-events: auto; cursor: pointer;
+      font-size: 22px; font-weight: bold; padding: 14px 46px; margin: 10px;
+      border: none; border-radius: 6px; background: #4fc3f7; color: #062029;
+      transition: transform 0.1s ease, background 0.15s ease;
+    }
+    .fullscreen button:hover { transform: scale(1.06); background: #81d4fa; }
+    .fullscreen button.secondary { background: #455a64; color: #fff; }
+    .fullscreen button.secondary:hover { background: #607d8b; }
+    #gameOverScreen h1 { color: #ef5350; }
+    #victoryScreen h1 { color: #66bb6a; }
+  </style>
+</head>
+<body>
+  <div id="app"></div>
+
+  <div id="damageFlash"></div>
+
+  <div id="healthBar" class="hud">
+    <div class="label">Vie</div>
+    <div class="track"><div id="healthFill"></div></div>
+  </div>
+
+  <div id="coinCounter" class="hud">🪙 0</div>
+  <div id="roomName" class="hud"></div>
+  <div id="crosshair" class="hud"></div>
+  <canvas id="minimap" class="hud" width="150" height="150"></canvas>
+
+  <div id="bossBar" class="hud">
+    <div class="label">BOSS TACOS</div>
+    <div class="track"><div id="bossFill"></div></div>
+  </div>
+
+  <div id="floatMsg" class="hud"></div>
+
+  <div id="menuScreen" class="fullscreen">
+    <h1><span class="accent-clean">Propre</span> vs <span class="accent-dirty">Sale</span></h1>
+    <p>Nettoie la villa. Trouve la clé. Bats le Boss Tacos.</p>
+    <button id="btnPlay">JOUER</button>
+    <button id="btnQuit" class="secondary">QUITTER</button>
+  </div>
+
+  <div id="gameOverScreen" class="fullscreen hidden">
+    <h1>Game Over</h1>
+    <p id="gameOverInfo">La saleté a gagné...</p>
+    <button id="btnRestart">RECOMMENCER</button>
+  </div>
+
+  <div id="victoryScreen" class="fullscreen hidden">
+    <h1>Victoire !</h1>
+    <p id="victoryInfo">La villa est propre !</p>
+    <button id="btnRestartWin">REJOUER</button>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

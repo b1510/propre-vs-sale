@@ -1,0 +1,56 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+dist/
+build/
+out/
+public/build/
+
+# Caches
+.cache/
+.parcel-cache/
+.vite/
+.esbuild/
+/.next/
+.turbo/
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Coverage
+coverage/
+.nyc_output/
+
+# TypeScript
+*.tsbuildinfo
+
+# Editor directories and files
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+/.cache-loader
+/.tmp
+tmp/
+
+# Optional: lockfiles & package manager config — keep them if you want reproducible installs
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
