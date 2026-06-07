@@ -91,6 +91,7 @@ export default class Game {
     // Nettoyage si rejoue / change de niveau.
     if (this.level) {
       this.scene.remove(this.level.group);
+      this.level.dispose();
     }
     // Reconstruit une scène propre.
     this._initScene();

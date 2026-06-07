@@ -1,5 +1,18 @@
 import * as THREE from 'three';
 import { WALL_THICKNESS, ROOM_HEIGHT } from './LevelData.js';
+import { woodFloor, tileFloor, plasterWall, metalFloor } from './Textures.js';
+
+// Choisit la texture de sol selon le type de pièce.
+function pickFloorTexture(name, rx, ry) {
+  if (name.startsWith('machines') || name.startsWith('dangereuse')) {
+    return metalFloor(rx, ry);                       // usine : sol métal
+  }
+  if (name === 'cuisine' || name === 'salle_bains' || name === 'sucree' ||
+      name === 'pause' || name.startsWith('toilettes')) {
+    return tileFloor(rx, ry);                         // pièces « humides » / carrelées
+  }
+  return woodFloor(rx, ry);                           // séjour : parquet
+}
 
 // Une pièce : sol, plafond, murs avec ouvertures de portes, lumière ponctuelle.
 // Les murs générés sont ajoutés au tableau `wallColliders` (utilisé par l'IA
@@ -17,8 +30,22 @@ export default class Room {
     this.cx = (def.minX + def.maxX) / 2;
     this.cz = (def.minZ + def.maxZ) / 2;
 
-    this._floorMat = new THREE.MeshStandardMaterial({ color: def.floorColor, roughness: 0.85 });
-    this._wallMat = new THREE.MeshStandardMaterial({ color: 0xF5F0E8, roughness: 0.9 });
+    // Sol texturé (la texture multiplie la couleur propre à la pièce).
+    const frx = Math.max(1, Math.round(this.width / 4));
+    const fry = Math.max(1, Math.round(this.depth / 4));
+    const floorMap = pickFloorTexture(name, frx, fry);
+    this._floorMat = new THREE.MeshStandardMaterial({
+      color: def.floorColor, roughness: 0.8, metalness: name.startsWith('machines') || name.startsWith('dangereuse') ? 0.3 : 0.0,
+      map: floorMap, bumpMap: floorMap, bumpScale: 0.02,
+    });
+
+    // Murs en plâtre (bruit doux + léger relief, matériau partagé).
+    const wallMap = plasterWall(3, 2);
+    this._wallMat = new THREE.MeshStandardMaterial({
+      color: 0xF5F0E8, roughness: 0.92,
+      map: wallMap, bumpMap: wallMap, bumpScale: 0.006,
+    });
+
     this._ceilMat = new THREE.MeshStandardMaterial({ color: 0xFAFAFA, roughness: 1.0 });
 
     this._buildFloorCeil();

@@ -297,6 +297,21 @@ export default class Level {
     return null;
   }
 
+  // Libère géométries/matériaux/textures (appelé avant reconstruction).
+  dispose() {
+    this.group.traverse((o) => {
+      if (!o.isMesh) return;
+      o.geometry.dispose();
+      const mats = Array.isArray(o.material) ? o.material : [o.material];
+      for (const m of mats) {
+        for (const k of ['map', 'bumpMap', 'roughnessMap', 'normalMap', 'metalnessMap']) {
+          if (m[k]) m[k].dispose();
+        }
+        m.dispose();
+      }
+    });
+  }
+
   update(delta) {
     if (this.keyMesh) {
       this.keyMesh.rotation.y += delta * 2;
