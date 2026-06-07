@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import SoundManager from './SoundManager.js';
 import InputManager from './InputManager.js';
 import Level from './level/Level.js';
@@ -30,8 +31,18 @@ export default class Game {
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.shadowMap.enabled = true;
+    // Rendu plus réaliste : tone mapping filmique (ACES) + exposition.
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
+    this.renderer.shadowMap.enabled = false; // pas d'ombres dynamiques (perf)
     container.appendChild(this.renderer.domElement);
+
+    // Éclairage par image (IBL) : calculé une seule fois, réutilisé à chaque
+    // (re)construction de scène. Donne un ombrage doux et des reflets aux
+    // MeshStandardMaterial, à coût quasi nul à l'exécution.
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    this.envMap = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    pmrem.dispose();
 
     this.camera = new THREE.PerspectiveCamera(
       75, window.innerWidth / window.innerHeight, 0.1, 200
@@ -72,6 +83,7 @@ export default class Game {
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x1a1d24);
     this.scene.fog = new THREE.Fog(0x1a1d24, 30, 70);
+    if (this.envMap) this.scene.environment = this.envMap; // IBL
     this.scene.add(this.camera);
   }
 

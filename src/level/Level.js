@@ -206,9 +206,11 @@ export default class Level {
   }
 
   _addGlobalLights() {
-    const amb = new THREE.AmbientLight(0xffffff, 0.3);
+    // L'IBL (scene.environment) fournit déjà une lumière d'appoint douce :
+    // on réduit l'ambiante pour conserver du contraste.
+    const amb = new THREE.AmbientLight(0xffffff, 0.15);
     this.scene.add(amb);
-    const dir = new THREE.DirectionalLight(0xffffff, 0.25);
+    const dir = new THREE.DirectionalLight(0xffffff, 0.22);
     dir.position.set(20, 40, -10);
     this.scene.add(dir);
   }
