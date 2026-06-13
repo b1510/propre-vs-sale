@@ -71,12 +71,18 @@ export default class Level {
           (dr.roomA === name || dr.roomB === name)
       );
 
-      // Mur ouest (x = minX) et est (x = maxX).
-      this._buildSideNS(room, d.minX, d.minZ, d.maxZ, doorsOnX(d.minX));
-      this._buildSideNS(room, d.maxX, d.minZ, d.maxZ, doorsOnX(d.maxX));
-      // Mur sud (z = minZ) et nord (z = maxZ).
-      this._buildSideEW(room, d.minZ, d.minX, d.maxX, doorsOnZ(d.minZ));
-      this._buildSideEW(room, d.maxZ, d.minX, d.maxX, doorsOnZ(d.maxZ));
+      // Chaque pièce construit ses 4 côtés ; deux pièces voisines bâtissent
+      // donc DEUX murs au même endroit (frontière partagée). Pour éviter le
+      // z-fighting (fourmillement) entre ces faces coplanaires de matériaux
+      // différents, on décale chaque mur très légèrement vers l'intérieur de
+      // SA pièce → les faces voisines ne sont plus à la même profondeur.
+      const EPS = 0.04;
+      // Mur ouest (x = minX, intérieur vers +x) et est (x = maxX, vers -x).
+      this._buildSideNS(room, d.minX + EPS, d.minZ, d.maxZ, doorsOnX(d.minX));
+      this._buildSideNS(room, d.maxX - EPS, d.minZ, d.maxZ, doorsOnX(d.maxX));
+      // Mur sud (z = minZ, vers +z) et nord (z = maxZ, vers -z).
+      this._buildSideEW(room, d.minZ + EPS, d.minX, d.maxX, doorsOnZ(d.minZ));
+      this._buildSideEW(room, d.maxZ - EPS, d.minX, d.maxX, doorsOnZ(d.maxZ));
 
       this.wallColliders.push(...room.wallColliders);
     }
