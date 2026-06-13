@@ -52,6 +52,27 @@
     }
     #crosshair::before { left: 50%; top: 0; width: 2px; height: 100%; transform: translateX(-50%); }
     #crosshair::after { top: 50%; left: 0; height: 2px; width: 100%; transform: translateY(-50%); }
+    #crosshair { transition: transform 0.08s ease; }
+    #crosshair.hit { transform: translate(-50%, -50%) scale(1.6); }
+    #crosshair.hit::before, #crosshair.hit::after { background: #ff5252; }
+
+    /* Chiffres de dégâts flottants */
+    @keyframes dmgFloat {
+      from { opacity: 1; transform: translate(-50%, -50%); }
+      to   { opacity: 0; transform: translate(-50%, -140%); }
+    }
+    .dmgNum {
+      position: fixed; z-index: 11; pointer-events: none;
+      color: #fff; font-weight: bold; font-size: 20px; text-shadow: 0 2px 4px #000;
+      animation: dmgFloat 0.7s ease-out forwards;
+    }
+    .dmgNum.crit { color: #ffca28; font-size: 26px; }
+
+    /* Jauge de propreté */
+    #cleanHud {
+      left: 24px; top: 18px; color: #b3e5fc; font-size: 16px; font-weight: 600;
+      text-shadow: 0 1px 3px #000; display: none;
+    }
 
     /* Minimap */
     #minimap {
@@ -146,6 +167,44 @@
     .shop-item button:hover:not(:disabled) { background: #ffe082; }
     .shop-item button:disabled { background: #555; color: #999; cursor: not-allowed; }
 
+    /* Score & classement */
+    .score-line {
+      font-size: 22px; font-weight: bold; color: #ffd54a;
+      margin-bottom: 22px; text-shadow: 0 2px 6px #000;
+    }
+    .leaderboard { width: 420px; max-width: 90vw; margin-bottom: 28px; }
+    .leaderboard.hidden { display: none; }
+    .lb-title {
+      font-size: 20px; font-weight: bold; color: #ffd54a;
+      margin: 8px 0 14px; text-shadow: 0 2px 6px #000;
+    }
+    #menuLeaderboard { margin-top: 26px; margin-bottom: 0; }
+    .name-entry { display: flex; gap: 10px; margin-bottom: 16px; }
+    .name-entry input {
+      flex: 1; pointer-events: auto; font-size: 16px; padding: 10px 14px;
+      border-radius: 6px; border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.08); color: #fff;
+    }
+    .name-entry input::placeholder { color: #90a4ae; }
+    .name-entry button {
+      pointer-events: auto; cursor: pointer; margin: 0; flex-shrink: 0;
+      font-size: 16px; font-weight: bold; padding: 10px 18px;
+      border: none; border-radius: 6px; background: #4fc3f7; color: #062029;
+    }
+    .name-entry button:hover:not(:disabled) { background: #81d4fa; }
+    .name-entry button:disabled { background: #455a64; color: #b0bec5; cursor: default; }
+    .leaderboard-list { list-style: none; text-align: left; }
+    .leaderboard-list li {
+      display: flex; align-items: center; gap: 12px; padding: 8px 14px;
+      border-radius: 6px; font-size: 17px; color: #cfd8dc;
+      background: rgba(255,255,255,0.04); margin-bottom: 6px;
+    }
+    .leaderboard-list li.lb-me { background: rgba(79,195,247,0.22); color: #fff; }
+    .leaderboard-list li.lb-empty { justify-content: center; color: #78909c; }
+    .leaderboard-list .lb-rank { width: 28px; color: #ffd54a; font-weight: bold; }
+    .leaderboard-list .lb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .leaderboard-list .lb-score { font-weight: bold; color: #fff; }
+
     /* HUD inventaire (consommables) */
     #inventoryHud {
       left: 24px; bottom: 64px; color: #fff; font-size: 15px;
@@ -188,6 +247,79 @@
     #btnJump  { right: 146px; bottom: 70px; }
     #btnHeal  { right: 150px; bottom: 200px; background: rgba(102,187,106,0.28); }
     #btnBoost { right: 40px;  bottom: 240px; background: rgba(255,202,40,0.28); }
+
+    /* --- Multijoueur : écrans réseau / lobby --- */
+    #networkScreen h1, #lobbyScreen h1 { color: #4fc3f7; }
+    .net-form {
+      display: flex; flex-direction: column; gap: 16px;
+      width: 460px; max-width: 90vw; margin-bottom: 24px;
+    }
+    .net-row { display: flex; gap: 10px; }
+    .net-form input[type="text"] {
+      flex: 1; pointer-events: auto; font-size: 17px; padding: 12px 14px;
+      border-radius: 6px; border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.08); color: #fff;
+    }
+    .net-form input[type="text"]::placeholder { color: #90a4ae; }
+    .net-form input[type="color"] {
+      pointer-events: auto; width: 52px; height: 48px; padding: 2px;
+      border: 1px solid rgba(255,255,255,0.25); border-radius: 6px;
+      background: rgba(255,255,255,0.08); cursor: pointer;
+    }
+    .net-mode { display: flex; align-items: center; gap: 10px; justify-content: center; }
+    .net-mode-label { color: #b0bec5; font-size: 16px; }
+    .net-mode-btn {
+      pointer-events: auto; cursor: pointer; font-size: 16px; font-weight: bold;
+      padding: 10px 22px; margin: 0; border: 2px solid rgba(255,255,255,0.25);
+      border-radius: 6px; background: rgba(255,255,255,0.06); color: #cfd8dc;
+      transition: all 0.12s ease;
+    }
+    .net-mode-btn.active { background: #4fc3f7; color: #062029; border-color: #4fc3f7; }
+    .net-divider { color: #607d8b; font-size: 15px; margin: 2px 0; }
+    #networkScreen .net-form button { margin: 0; }
+
+    .lobby-code {
+      font-size: 26px; color: #fff; margin-bottom: 6px;
+    }
+    .lobby-code span { color: #ffd54a; font-weight: bold; letter-spacing: 4px; }
+    .lobby-mode { font-size: 17px; color: #b0bec5; margin-bottom: 20px; }
+    .lobby-players {
+      list-style: none; width: 420px; max-width: 90vw; margin-bottom: 18px; text-align: left;
+    }
+    .lobby-players li {
+      display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+      border-radius: 6px; font-size: 17px; color: #cfd8dc;
+      background: rgba(255,255,255,0.05); margin-bottom: 8px;
+    }
+    .lobby-players .lp-dot { width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0; }
+    .lobby-players .lp-name { flex: 1; }
+    .lobby-players .lp-host { color: #ffd54a; font-size: 14px; font-weight: bold; }
+    .lobby-players .lp-ready { font-size: 14px; }
+    .lobby-players .lp-ready.yes { color: #66bb6a; }
+    .lobby-players .lp-ready.no { color: #90a4ae; }
+    #lobbyHint { font-size: 15px; color: #90a4ae; min-height: 20px; margin-bottom: 8px; }
+    .lobby-actions { display: flex; gap: 12px; }
+    #btnReady.is-ready { background: #66bb6a; color: #06250a; }
+
+    /* Scoreboard en jeu (frags PvP / propreté coop) */
+    #scoreboard {
+      right: 18px; top: 56px; min-width: 180px;
+      background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px; padding: 8px 12px; color: #eceff1; font-size: 14px;
+      display: none;
+    }
+    #scoreboard .sb-title {
+      font-size: 12px; color: #90a4ae; text-transform: uppercase;
+      letter-spacing: 1px; margin-bottom: 6px;
+    }
+    #scoreboard .sb-row {
+      display: flex; align-items: center; gap: 8px; padding: 3px 0;
+    }
+    #scoreboard .sb-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    #scoreboard .sb-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #scoreboard .sb-name.me { font-weight: bold; color: #fff; }
+    #scoreboard .sb-val { font-weight: bold; color: #ffd54a; }
+    #scoreboard .sb-row.dead .sb-name { color: #78909c; text-decoration: line-through; }
   </style>
 </head>
 <body>
@@ -201,6 +333,7 @@
   </div>
 
   <div id="coinCounter" class="hud">🪙 0</div>
+  <div id="cleanHud" class="hud"></div>
   <div id="roomName" class="hud"></div>
   <div id="crosshair" class="hud"></div>
   <canvas id="minimap" class="hud" width="150" height="150"></canvas>
@@ -213,23 +346,87 @@
   <div id="floatMsg" class="hud"></div>
   <div id="boostHud" class="hud"></div>
   <div id="inventoryHud" class="hud"></div>
+  <div id="scoreboard" class="hud"></div>
 
   <div id="menuScreen" class="fullscreen">
     <h1><span class="accent-clean">Propre</span> vs <span class="accent-dirty">Sale</span></h1>
     <p>Nettoie la villa. Trouve la clé. Bats le Boss Tacos.</p>
     <button id="btnPlay">JOUER</button>
+    <button id="btnMultiplayer">JOUER EN LIGNE</button>
     <button id="btnQuit" class="secondary">QUITTER</button>
+    <div class="leaderboard" id="menuLeaderboard">
+      <div class="lb-title">🏆 Classement</div>
+      <ol class="leaderboard-list" id="menuBoard"></ol>
+    </div>
+  </div>
+
+  <!-- Réseau : connexion / création / rejoindre un salon -->
+  <div id="networkScreen" class="fullscreen hidden">
+    <h1>Multijoueur</h1>
+    <p id="networkStatus">Choisis ton pseudo, puis crée ou rejoins un salon.</p>
+    <div class="net-form">
+      <div class="net-row">
+        <input id="netName" type="text" maxlength="24" placeholder="Ton pseudo" />
+        <input id="netColor" type="color" value="#4fc3f7" title="Ta couleur" />
+      </div>
+
+      <div class="net-mode">
+        <span class="net-mode-label">Mode :</span>
+        <button class="net-mode-btn active" data-mode="coop" id="modeCoop">Coopératif</button>
+        <button class="net-mode-btn" data-mode="pvp" id="modePvp">PvP</button>
+      </div>
+
+      <button id="btnCreateRoom">CRÉER UN SALON</button>
+
+      <div class="net-divider">— ou —</div>
+
+      <div class="net-row">
+        <input id="netCode" type="text" maxlength="5" placeholder="CODE" style="text-transform:uppercase" />
+        <button id="btnJoinRoom">REJOINDRE</button>
+      </div>
+    </div>
+    <button id="btnNetBack" class="secondary">RETOUR</button>
+  </div>
+
+  <!-- Salon d'attente -->
+  <div id="lobbyScreen" class="fullscreen hidden">
+    <h1>Salon</h1>
+    <div class="lobby-code">Code : <span id="lobbyCode">----</span></div>
+    <div class="lobby-mode" id="lobbyMode">Mode : Coopératif</div>
+    <ul class="lobby-players" id="lobbyPlayers"></ul>
+    <p id="lobbyHint"></p>
+    <div class="lobby-actions">
+      <button id="btnReady">PRÊT</button>
+      <button id="btnStart">DÉMARRER</button>
+    </div>
+    <button id="btnLeaveLobby" class="secondary">QUITTER LE SALON</button>
   </div>
 
   <div id="gameOverScreen" class="fullscreen hidden">
     <h1>Game Over</h1>
     <p id="gameOverInfo">La saleté a gagné...</p>
+    <div class="score-line" id="gameOverScore"></div>
+    <div class="leaderboard" id="goLeaderboard">
+      <div class="name-entry">
+        <input id="goName" type="text" maxlength="24" placeholder="Ton pseudo" />
+        <button id="goSubmit">Enregistrer</button>
+      </div>
+      <ol class="leaderboard-list" id="goBoard"></ol>
+    </div>
     <button id="btnRestart">RECOMMENCER</button>
   </div>
 
   <div id="victoryScreen" class="fullscreen hidden">
     <h1>Victoire !</h1>
     <p id="victoryInfo">La villa est propre !</p>
+    <div class="score-line" id="victoryScore"></div>
+    <div class="leaderboard" id="winLeaderboard">
+      <div class="name-entry">
+        <input id="winName" type="text" maxlength="24" placeholder="Ton pseudo" />
+        <button id="winSubmit">Enregistrer</button>
+      </div>
+      <ol class="leaderboard-list" id="winBoard"></ol>
+    </div>
     <button id="btnRestartWin">REJOUER</button>
   </div>
 

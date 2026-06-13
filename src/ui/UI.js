@@ -8,6 +8,8 @@ export default class UI {
     this.healthFill = document.getElementById('healthFill');
     this.coinCounter = document.getElementById('coinCounter');
     this.roomName = document.getElementById('roomName');
+    this.crosshair = document.getElementById('crosshair');
+    this.cleanHud = document.getElementById('cleanHud');
     this.damageFlash = document.getElementById('damageFlash');
     this.bossBar = document.getElementById('bossBar');
     this.bossFill = document.getElementById('bossFill');
@@ -15,6 +17,7 @@ export default class UI {
     this.floatMsg = document.getElementById('floatMsg');
     this.inventoryHud = document.getElementById('inventoryHud');
     this.boostHud = document.getElementById('boostHud');
+    this.scoreboard = document.getElementById('scoreboard');
 
     this.minimap = document.getElementById('minimap');
     this.mmCtx = this.minimap.getContext('2d');
@@ -80,6 +83,34 @@ export default class UI {
     this._flashTimer = 0.25;
   }
 
+  // Marqueur de coup (réticule) quand on touche un ennemi/une tache.
+  flashCrosshair() {
+    this.crosshair.classList.add('hit');
+    clearTimeout(this._chTimer);
+    this._chTimer = setTimeout(() => this.crosshair.classList.remove('hit'), 110);
+  }
+
+  // Chiffre de dégât flottant à la position monde projetée.
+  showDamageNumber(worldPos, amount, camera, crit = false) {
+    const v = worldPos.clone().project(camera);
+    if (v.z > 1) return; // derrière la caméra
+    const el = document.createElement('div');
+    el.className = 'dmgNum' + (crit ? ' crit' : '');
+    el.textContent = Math.round(amount);
+    el.style.left = ((v.x * 0.5 + 0.5) * window.innerWidth) + 'px';
+    el.style.top = ((-v.y * 0.5 + 0.5) * window.innerHeight) + 'px';
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+
+  // Jauge de propreté de la pièce courante.
+  setCleanliness(cleaned, total) {
+    if (!total) { this.cleanHud.style.display = 'none'; return; }
+    this.cleanHud.style.display = 'block';
+    const pct = Math.round((cleaned / total) * 100);
+    this.cleanHud.textContent = `🧽 ${cleaned}/${total} (${pct}%)`;
+  }
+
   showMessage(text, duration = 2.5) {
     this.floatMsg.textContent = text;
     this.floatMsg.style.opacity = '1';
@@ -115,6 +146,32 @@ export default class UI {
   setBossHealth(hp, maxHp) {
     const pct = Math.max(0, Math.min(100, (hp / maxHp) * 100));
     this.bossFill.style.width = pct + '%';
+  }
+
+  // --- Tableau des scores (multijoueur) ---
+  setScoreboardVisible(v) {
+    if (this.scoreboard) this.scoreboard.style.display = v ? 'block' : 'none';
+  }
+
+  // rows : [{ name, color, value, me, dead }]
+  setScoreboard(title, rows) {
+    if (!this.scoreboard) return;
+    let html = `<div class="sb-title">${this._escape(title)}</div>`;
+    for (const r of rows) {
+      html +=
+        `<div class="sb-row${r.dead ? ' dead' : ''}">` +
+        `<span class="sb-dot" style="background:${this._escape(r.color)}"></span>` +
+        `<span class="sb-name${r.me ? ' me' : ''}">${this._escape(r.name)}</span>` +
+        `<span class="sb-val">${this._escape(r.value)}</span>` +
+        `</div>`;
+    }
+    this.scoreboard.innerHTML = html;
+  }
+
+  _escape(str) {
+    const d = document.createElement('div');
+    d.textContent = String(str);
+    return d.innerHTML;
   }
 
   update(delta) {

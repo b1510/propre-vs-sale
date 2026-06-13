@@ -10,6 +10,8 @@ const GRAVITY = 15;
 const JUMP_VELOCITY = 6;
 const MOUSE_SENSITIVITY = 0.0022;
 const PLAYER_RADIUS = 0.35;
+const WEAPON_REST = { x: 0.32, y: -0.28, z: -0.6 };
+const STRIDE = 2.2; // distance entre deux pas
 
 export default class Player {
   constructor(camera, input, level) {
@@ -45,6 +47,12 @@ export default class Player {
     this._baseMeleeDamage = 20;
     this._boostTimer = 0;
     this._boostMult = 1;
+
+    // Effets : screen shake (trauma), balancement d'arme, pas.
+    this._trauma = 0;
+    this._bobPhase = 0;
+    this._stepDist = 0;
+    this.wantsStep = false; // consommé par Game ce frame
 
     this.setWeapon({ build: 'plumeau', meleeDamage: 20, meleeRange: 2.5 });
     this._updateCamera();
@@ -155,12 +163,20 @@ export default class Player {
     this._boostTimer = 0;
     this._boostMult = 1;
     this.meleeDamage = this._baseMeleeDamage;
+    this._trauma = 0;
+    this._bobPhase = 0;
+    this._stepDist = 0;
     this._updateCamera();
   }
 
   takeDamage(dmg) {
     this.hp = Math.max(0, this.hp - dmg);
     this._regenTimer = this.regenDelay; // suspend la régénération
+  }
+
+  // Ajoute du tremblement de caméra (0..1 cumulatif).
+  addShake(amount) {
+    this._trauma = Math.min(1, this._trauma + amount);
   }
 
   // Soin instantané (consommable).
@@ -206,8 +222,10 @@ export default class Player {
 
   update(delta) {
     this.wantsMeleeHit = false;
+    this.wantsStep = false;
     this._regen(delta);
     this._updateBoost(delta);
+    if (this._trauma > 0) this._trauma = Math.max(0, this._trauma - delta * 1.6);
 
     // --- Regard souris + stick droit manette ---
     const md = this.input.consumeMouseDelta();
@@ -271,6 +289,16 @@ export default class Player {
       this.onGround = true;
     }
 
+    // --- Balancement d'arme + pas (selon distance réellement parcourue) ---
+    const movedDist = Math.hypot(this.position.x - prevX, this.position.z - prevZ);
+    if (this.onGround && movedDist > 0.0001) {
+      this._bobPhase += movedDist * 1.9;
+      this._stepDist += movedDist;
+      if (this._stepDist >= STRIDE) { this._stepDist = 0; this.wantsStep = true; }
+    } else {
+      this._stepDist = STRIDE * 0.5; // prochain pas plus rapide au redémarrage
+    }
+
     // --- Plumeau (clic gauche ou bouton X/RB manette) ---
     if (this._meleeTimer > 0) this._meleeTimer -= delta;
     if (this.input.consumeLeftClick() && this._meleeTimer <= 0) {
@@ -284,6 +312,11 @@ export default class Player {
   }
 
   _updateWeaponAnim(delta) {
+    // Balancement de marche (bob) appliqué à la position de repos.
+    const bobX = Math.cos(this._bobPhase) * 0.012;
+    const bobY = Math.abs(Math.sin(this._bobPhase)) * 0.018;
+    this.weapon.position.set(WEAPON_REST.x + bobX, WEAPON_REST.y + bobY, WEAPON_REST.z);
+
     if (this._swingTime > 0) {
       this._swingTime -= delta;
       // Inclinaison de l'arme + caméra pendant le coup (~15°).
@@ -299,7 +332,15 @@ export default class Player {
 
   _updateCamera() {
     this.camera.position.copy(this.position);
-    const e = new THREE.Euler(this.pitch, this.yaw, this._camRoll || 0, 'YXZ');
+    let roll = this._camRoll || 0;
+    if (this._trauma > 0) {
+      // Tremblement : quadratique pour un ressenti plus net sur les gros chocs.
+      const s = this._trauma * this._trauma;
+      this.camera.position.x += (Math.random() * 2 - 1) * s * 0.14;
+      this.camera.position.y += (Math.random() * 2 - 1) * s * 0.14;
+      roll += (Math.random() * 2 - 1) * s * 0.06;
+    }
+    const e = new THREE.Euler(this.pitch, this.yaw, roll, 'YXZ');
     this.camera.quaternion.setFromEuler(e);
   }
 

@@ -25,6 +25,7 @@ public/build/
 # Environment files
 .env
 .env.*
+!.env.example
 
 # Coverage
 coverage/

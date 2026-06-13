@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import { WALL_THICKNESS, ROOM_HEIGHT } from './LevelData.js';
-import { woodFloor, tileFloor, plasterWall, metalFloor } from './Textures.js';
+import {
+  woodFloor, tileFloor, metalFloor,
+  wallpaper, subwayTile, brickWall, concreteWall,
+  ceilingPlaster, ceilingTile, woodCeiling,
+} from './Textures.js';
 
 // Choisit la texture de sol selon le type de pièce.
 function pickFloorTexture(name, rx, ry) {
@@ -12,6 +16,47 @@ function pickFloorTexture(name, rx, ry) {
     return tileFloor(rx, ry);                         // pièces « humides » / carrelées
   }
   return woodFloor(rx, ry);                           // séjour : parquet
+}
+
+// Teintes de papier peint par pièce (l'albédo neutre est multiplié).
+const WALLPAPER_TINT = {
+  hall: 0xF1ECE0, salon: 0xF0E6D2, chambre1: 0xDCE6F2,
+  chambre2: 0xE9DCF2, chambre3: 0xDDF0DE, salle_jeu: 0x99A2AE,
+  grenier: 0xCFC2B0,
+};
+
+// Choisit la texture + le matériau des MURS selon la pièce.
+// Renvoie { set, color, normalScale, metalness, roughness }.
+function pickWallTexture(name) {
+  // Pièces carrelées : faïence métro brillante.
+  if (name === 'cuisine' || name === 'salle_bains' ||
+      name === 'sucree' || name === 'pause' || name.startsWith('toilettes')) {
+    return { set: subwayTile(4, 3), color: 0xffffff, normalScale: 0.4, roughness: 1.0 };
+  }
+  // Usine : béton banché.
+  if (name.startsWith('machines') || name.startsWith('dangereuse')) {
+    return { set: concreteWall(3, 2), color: 0xC4C4C4, normalScale: 0.6, roughness: 1.0 };
+  }
+  // Grenier : briques apparentes.
+  if (name === 'grenier') {
+    return { set: brickWall(4, 3), color: 0xffffff, normalScale: 0.6, roughness: 1.0 };
+  }
+  // Pièces de vie : papier peint teinté.
+  return {
+    set: wallpaper(3, 3), color: WALLPAPER_TINT[name] || 0xF5F0E8,
+    normalScale: 0.4, roughness: 1.0,
+  };
+}
+
+// Choisit la texture + le matériau du PLAFOND selon la pièce.
+function pickCeilTexture(name, rx, ry) {
+  if (name.startsWith('machines') || name.startsWith('dangereuse')) {
+    return { set: ceilingTile(rx, ry), color: 0xFFFFFF, normalScale: 0.5 }; // dalles
+  }
+  if (name === 'grenier') {
+    return { set: woodCeiling(2, 2), color: 0xFFFFFF, normalScale: 0.7 };   // lambris bois
+  }
+  return { set: ceilingPlaster(2, 2), color: 0xFAFAFA, normalScale: 0.4 };  // caissons
 }
 
 // Une pièce : sol, plafond, murs avec ouvertures de portes, lumière ponctuelle.
@@ -30,23 +75,34 @@ export default class Room {
     this.cx = (def.minX + def.maxX) / 2;
     this.cz = (def.minZ + def.maxZ) / 2;
 
-    // Sol texturé (la texture multiplie la couleur propre à la pièce).
+    // Sol texturé PBR (la map multiplie la couleur propre à la pièce ;
+    // normalMap = relief réaliste ; roughnessMap = reflets variés).
     const frx = Math.max(1, Math.round(this.width / 4));
     const fry = Math.max(1, Math.round(this.depth / 4));
-    const floorMap = pickFloorTexture(name, frx, fry);
+    const isMetal = name.startsWith('machines') || name.startsWith('dangereuse');
+    const floor = pickFloorTexture(name, frx, fry);
     this._floorMat = new THREE.MeshStandardMaterial({
-      color: def.floorColor, roughness: 0.8, metalness: name.startsWith('machines') || name.startsWith('dangereuse') ? 0.3 : 0.0,
-      map: floorMap, bumpMap: floorMap, bumpScale: 0.02,
+      color: def.floorColor, roughness: 0.85, metalness: isMetal ? 0.55 : 0.04,
+      map: floor.map, normalMap: floor.normalMap, roughnessMap: floor.roughnessMap,
+      normalScale: new THREE.Vector2(0.5, 0.5), envMapIntensity: 1.0,
     });
 
-    // Murs en plâtre (bruit doux + léger relief, matériau partagé).
-    const wallMap = plasterWall(3, 2);
+    // Murs : texture détaillée selon le type de pièce (faïence, briques,
+    // béton, papier peint teinté).
+    const wall = pickWallTexture(name);
     this._wallMat = new THREE.MeshStandardMaterial({
-      color: 0xF5F0E8, roughness: 0.92,
-      map: wallMap, bumpMap: wallMap, bumpScale: 0.006,
+      color: wall.color, roughness: wall.roughness, metalness: 0.0,
+      map: wall.set.map, normalMap: wall.set.normalMap, roughnessMap: wall.set.roughnessMap,
+      normalScale: new THREE.Vector2(wall.normalScale, wall.normalScale),
     });
 
-    this._ceilMat = new THREE.MeshStandardMaterial({ color: 0xFAFAFA, roughness: 1.0 });
+    // Plafond : caissons (vie), dalles suspendues (usine) ou lambris (grenier).
+    const ceil = pickCeilTexture(name, 2, 2);
+    this._ceilMat = new THREE.MeshStandardMaterial({
+      color: ceil.color, roughness: 1.0,
+      map: ceil.set.map, normalMap: ceil.set.normalMap, roughnessMap: ceil.set.roughnessMap,
+      normalScale: new THREE.Vector2(ceil.normalScale, ceil.normalScale),
+    });
 
     this._buildFloorCeil();
   }

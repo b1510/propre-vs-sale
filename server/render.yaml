@@ -1,0 +1,20 @@
+# Deploiement du serveur multijoueur sur Render (https://render.com).
+# Cree un service web Node ; Render injecte automatiquement la variable PORT.
+#
+# Apres deploiement, recupere l'URL publique (https://<nom>.onrender.com) et
+# configure le client avec :  VITE_SERVER_URL=wss://<nom>.onrender.com
+#
+# Memes principes pour Railway / Fly.io : commande de demarrage `npm start`
+# dans le dossier server/, et expose le port fourni par la plateforme.
+services:
+  - type: web
+    name: propre-vs-sale-server
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

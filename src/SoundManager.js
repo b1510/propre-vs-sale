@@ -5,6 +5,8 @@ export default class SoundManager {
   constructor() {
     this._ctx = null;
     this._vol = 0.38;
+    this._musicVol = 0.12;
+    this._music = null; // { interval, drone, gain }
   }
 
   _ctx_() {
@@ -20,6 +22,102 @@ export default class SoundManager {
   // À appeler depuis un geste utilisateur (tap/clic) pour débloquer l'audio mobile.
   resume() {
     try { this._ctx_(); } catch (_) {}
+  }
+
+  // --- Musique de fond procédurale (boucle) + drone d'ambiance ---
+  startMusic(level = 1) {
+    this.stopMusic();
+    let ctx;
+    try { ctx = this._ctx_(); } catch (_) { return; }
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(this._musicVol, ctx.currentTime + 1.5);
+    gain.connect(ctx.destination);
+
+    // Drone grave d'ambiance (plus tendu au niveau 2).
+    const drone = ctx.createOscillator();
+    const dGain = ctx.createGain();
+    drone.type = 'sine';
+    drone.frequency.value = level >= 2 ? 55 : 49;
+    dGain.gain.value = 0.5;
+    drone.connect(dGain); dGain.connect(gain);
+    drone.start();
+
+    // Gamme mineure + basse, tempo selon le niveau.
+    const scale = level >= 2
+      ? [220, 261.6, 293.7, 349.2, 392, 466.2]
+      : [196, 233.1, 261.6, 293.7, 349.2, 392];
+    const bass = level >= 2 ? 58.3 : 49;
+    const bpm = level >= 2 ? 128 : 104;
+    const beat = 60 / bpm;
+    let step = 0;
+    const interval = setInterval(() => {
+      if (!this._music) return;
+      if (step % 2 === 0) this._musNote(gain, bass, beat * 1.9, 'triangle', 0.5);
+      this._musNote(gain, scale[(step * 2) % scale.length], beat * 0.9, 'sine', 0.35);
+      if (step % 4 === 2) {
+        this._musNote(gain, scale[step % scale.length] * 2, beat * 0.5, 'sine', 0.2);
+      }
+      step = (step + 1) % 16;
+    }, beat * 1000);
+
+    this._music = { interval, drone, gain };
+  }
+
+  _musNote(dest, freq, dur, type, vol) {
+    const ctx = this._ctx;
+    const t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(vol, t + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(dest);
+    osc.start(t); osc.stop(t + dur + 0.05);
+  }
+
+  stopMusic() {
+    if (!this._music) return;
+    clearInterval(this._music.interval);
+    try { this._music.drone.stop(); } catch (_) {}
+    try {
+      this._music.gain.gain.exponentialRampToValueAtTime(0.0001, this._ctx.currentTime + 0.3);
+    } catch (_) {}
+    this._music = null;
+  }
+
+  // Pas (thump grave et court).
+  _step() {
+    const ctx = this._ctx_(), t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuf(ctx, 0.08);
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'lowpass'; filt.frequency.value = 320;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(this._vol * 0.16, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+    src.connect(filt); filt.connect(g); g.connect(ctx.destination);
+    src.start(t); src.stop(t + 0.08);
+  }
+
+  // Aspiration (nettoyage de tache).
+  _clean() {
+    const ctx = this._ctx_(), t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuf(ctx, 0.2);
+    const filt = ctx.createBiquadFilter();
+    filt.type = 'bandpass';
+    filt.frequency.setValueAtTime(500, t);
+    filt.frequency.exponentialRampToValueAtTime(2200, t + 0.2);
+    filt.Q.value = 1.2;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(this._vol * 0.22, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    src.connect(filt); filt.connect(g); g.connect(ctx.destination);
+    src.start(t); src.stop(t + 0.2);
   }
 
   // Générateur de bruit blanc court.
