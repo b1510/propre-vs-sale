@@ -25,13 +25,28 @@ Sans `VITE_SERVER_URL`, le client retombe sur `ws://localhost:8787` par défaut.
 
 ## Déployer (Render)
 
-Le fichier [`render.yaml`](./render.yaml) décrit un service web Node gratuit.
+Le plus simple est de créer un **Web Service** manuellement (pas besoin du `render.yaml`) :
 
 1. Pousser le repo sur GitHub.
-2. Sur Render : *New → Blueprint* et sélectionner le repo (il lit `server/render.yaml`).
-3. Une fois en ligne, récupérer l'URL `https://<nom>.onrender.com`.
-4. Configurer le client en production : `VITE_SERVER_URL=wss://<nom>.onrender.com`
+2. Sur Render, cliquer **New +** (en haut à droite) → **Web Service**.
+3. Connecter le repo GitHub.
+4. Renseigner les champs :
+   - **Root Directory** : `server`
+   - **Runtime / Language** : `Node`
+   - **Build Command** : `npm install`
+   - **Start Command** : `npm start`
+   - **Instance Type** : `Free` (suffisant pour tester)
+5. Créer le service. Une fois en ligne, récupérer l'URL `https://<nom>.onrender.com`.
+6. Configurer le client en production : `VITE_SERVER_URL=wss://<nom>.onrender.com`
    (noter `wss://`, pas `ws://`, car le site est servi en HTTPS).
+
+> **Variante « Blueprint »** : le fichier [`render.yaml`](./render.yaml) décrit le même
+> service. Si tu veux l'utiliser, fais **New +** → **Blueprint**, sélectionne le repo,
+> et Render lit `server/render.yaml`. La création manuelle ci-dessus reste plus directe.
+
+> **Attention plan gratuit** : Render endort un Web Service gratuit après ~15 min sans
+> trafic ; le premier joueur subit alors ~30 s de réveil. Pour éviter ça, utilise un VPS
+> (section ci-dessous) ou un plan payant.
 
 > Railway / Fly.io fonctionnent pareil : `rootDir = server`, démarrage `npm start`,
 > la plateforme fournit `PORT` automatiquement.
