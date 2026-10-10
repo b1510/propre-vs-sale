@@ -44,6 +44,8 @@ export default class Menu {
     this.onPlay = null;
     this.onRestart = null;
     this.onMultiplayer = null;
+    this.onBackToGame = null;
+    this.onMainMenu = null;
 
     this.btnPlay.addEventListener('click', () => {
       if (this.onPlay) this.onPlay();
@@ -65,6 +67,13 @@ export default class Menu {
     });
     this.btnRestartWin.addEventListener('click', () => {
       if (this.onRestart) this.onRestart();
+    });
+    // Fin de partie : retour à l'exploration de la jungle ou au menu principal.
+    document.getElementById('btnBackJungle').addEventListener('click', () => {
+      if (this.onBackToGame) this.onBackToGame();
+    });
+    document.getElementById('btnMenuWin').addEventListener('click', () => {
+      if (this.onMainMenu) this.onMainMenu();
     });
 
     // Câblage des boutons d'envoi de score.
@@ -145,11 +154,19 @@ export default class Menu {
     this._setupBlock(this.goBlock, stats);
   }
 
+  // Un même objet `stats` rouvert (retour de la jungle) conserve l'état du
+  // formulaire : on ne réinitialise pas le bouton « Enregistré ».
   showVictory(stats) {
+    const same = this._lastWinStats === stats;
     this._lastWinStats = stats;
     this.victoryScreen.classList.remove('hidden');
-    this.victoryInfo.textContent = 'La villa est propre !';
-    this._setupBlock(this.winBlock, stats);
+    this.victoryInfo.textContent = 'Bravo, tout est propre ! Tu as terminé le jeu.';
+    if (!same) this._setupBlock(this.winBlock, stats);
+  }
+
+  // Le score de la dernière victoire a-t-il déjà été envoyé au classement ?
+  get victorySubmitted() {
+    return !!this.winBlock.submitted;
   }
 
   // --- Classement ---

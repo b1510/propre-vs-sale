@@ -319,6 +319,8 @@ export default class Level {
   }
 
   update(delta) {
+    const time = performance.now() * 0.001;
+    for (const name in this.rooms) this.rooms[name].update(delta, time);
     if (this.keyMesh) {
       this.keyMesh.rotation.y += delta * 2;
       this.keyMesh.position.y =

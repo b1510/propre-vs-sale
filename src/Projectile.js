@@ -10,6 +10,9 @@ const PROFILES = {
   boule_de_feu: { radius: 0.24, color: 0xff5500, speed: 9, damage: 11 },
   spore:   { radius: 0.11, color: 0x76ff03, speed: 8.5, damage: 4 },
   part_de_pizza: { radius: 0.26, color: 0xffa726, speed: 9.5, damage: 14 },
+  // Boss glace : boules de glace (phase 1, faibles) puis boules fondues (phase 2, fortes).
+  glace:        { radius: 0.2,  color: 0xbfe9ff, speed: 11,   damage: 5 },
+  glace_fondue: { radius: 0.32, color: 0xff8fb1, speed: 10.5, damage: 14 },
 };
 
 const DAMAGE_MULT = 1.4;

@@ -156,7 +156,11 @@ export default class TouchControls {
     this.btnAttack.addEventListener('touchstart', (e) => {
       e.preventDefault();
       this.input.triggerAttack();
+      this.input.touchAttackHeld = true;   // maintenu : charge du boomerang
     }, { passive: false });
+    const attackEnd = (e) => { e.preventDefault(); this.input.touchAttackHeld = false; };
+    this.btnAttack.addEventListener('touchend', attackEnd, { passive: false });
+    this.btnAttack.addEventListener('touchcancel', attackEnd, { passive: false });
 
     // Saut : maintenu tant que le doigt est posé.
     this.btnJump.addEventListener('touchstart', (e) => {

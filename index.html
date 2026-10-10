@@ -106,6 +106,23 @@
       background: linear-gradient(90deg, #b71c1c 0%, #ff7043 100%);
       transition: width 0.15s ease;
     }
+    /* Boss à phases (glace) : 1re barre givrée, 2e barre fondue. */
+    #bossFill.phase1 { background: linear-gradient(90deg, #0288d1 0%, #b3e5fc 100%); }
+    #bossFill.phase2 { background: linear-gradient(90deg, #d81b60 0%, #ff80ab 100%); }
+
+    /* Aide de fin de partie (exploration de la jungle) */
+    #victoryHint {
+      left: 50%; bottom: 20px; transform: translateX(-50%);
+      display: none; align-items: center; gap: 12px;
+      color: #fff; font-size: 16px; text-shadow: 0 1px 4px #000;
+      background: rgba(0,0,0,0.55); padding: 10px 16px; border-radius: 8px;
+    }
+    #victoryHint button {
+      pointer-events: auto; cursor: pointer; font-size: 15px; font-weight: bold;
+      padding: 8px 14px; border: none; border-radius: 6px; background: #66bb6a; color: #0b2a0d;
+      white-space: nowrap;
+    }
+    #victoryHint button.secondary { background: #455a64; color: #fff; }
 
     /* Message flottant */
     #floatMsg {
@@ -344,6 +361,12 @@
     <div class="track"><div id="bossFill"></div></div>
   </div>
 
+  <div id="victoryHint" class="hud">
+    <span>🏆 Explore la jungle · va lire le panneau des scores</span>
+    <button id="vhScore">[E] Mon score</button>
+    <button id="vhMenu" class="secondary">[M] Menu</button>
+  </div>
+
   <div id="floatMsg" class="hud"></div>
   <div id="boostHud" class="hud"></div>
   <div id="inventoryHud" class="hud"></div>
@@ -351,7 +374,7 @@
 
   <div id="menuScreen" class="fullscreen">
     <h1><span class="accent-clean">Propre</span> vs <span class="accent-dirty">Sale</span></h1>
-    <p>Nettoie la villa. Trouve la clé. Bats le Boss Tacos.</p>
+    <p>Nettoie la villa, l'usine, l'école et l'usine de robots. Trouve les clés. Bats les boss.</p>
     <button id="btnPlay">JOUER</button>
     <button id="btnMultiplayer">JOUER EN LIGNE</button>
     <button id="btnQuit" class="secondary">QUITTER</button>
@@ -421,7 +444,7 @@
 
   <div id="victoryScreen" class="fullscreen hidden">
     <h1>Victoire !</h1>
-    <p id="victoryInfo">La villa est propre !</p>
+    <p id="victoryInfo">Tout est propre !</p>
     <div class="score-line" id="victoryScore"></div>
     <div class="leaderboard" id="winLeaderboard">
       <div class="name-entry">
@@ -430,7 +453,9 @@
       </div>
       <ol class="leaderboard-list" id="winBoard"></ol>
     </div>
-    <button id="btnRestartWin">REJOUER</button>
+    <button id="btnBackJungle">RETOUR À LA JUNGLE</button>
+    <button id="btnRestartWin" class="secondary">REJOUER</button>
+    <button id="btnMenuWin" class="secondary">MENU PRINCIPAL</button>
   </div>
 
   <div id="shopScreen" class="fullscreen hidden">

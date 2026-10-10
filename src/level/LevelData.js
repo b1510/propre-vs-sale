@@ -262,6 +262,97 @@ const LEVEL3_ENEMY_SPAWNS = [
 ];
 
 // =====================================================================
+// NIVEAU 4 — L'usine de robots
+// Grille 3×3 de cellules 12×12 + arène du boss + jungle (extérieur).
+//
+//           C0 (-18..-6)     C1 (-6..6)       C2 (6..18)
+//   R0      construction1    construction2    construction3     z -36..-24
+//   R1      test1            preparation      test2             z -24..-12
+//   R2      entrepot         hall (départ)    test3             z -12..0
+//   Arène   X[-12,12] Z[-54,-36]   (porte verrouillée depuis construction2)
+//   Jungle  X[-15,15] Z[-84,-54]   (porte s'ouvrant à la mort du boss)
+// =====================================================================
+
+const LEVEL4_ROOMS = {
+  construction1: { minX: -18, maxX: -6, minZ: -36, maxZ: -24, floorColor: 0x8A929A, label: 'Construction 1' },
+  construction2: { minX: -6,  maxX: 6,  minZ: -36, maxZ: -24, floorColor: 0x8A929A, label: 'Construction 2' },
+  construction3: { minX: 6,   maxX: 18, minZ: -36, maxZ: -24, floorColor: 0x8A929A, label: 'Construction 3' },
+  test1:         { minX: -18, maxX: -6, minZ: -24, maxZ: -12, floorColor: 0xB8C4CC, label: 'Salle de test 1' },
+  preparation:   { minX: -6,  maxX: 6,  minZ: -24, maxZ: -12, floorColor: 0xA9B2B9, label: 'Salle de préparation' },
+  test2:         { minX: 6,   maxX: 18, minZ: -24, maxZ: -12, floorColor: 0xB8C4CC, label: 'Salle de test 2' },
+  entrepot:      { minX: -18, maxX: -6, minZ: -12, maxZ: 0,   floorColor: 0x7C746A, label: 'Entrepôt' },
+  hall_entree:        { minX: -6,  maxX: 6,  minZ: -12, maxZ: 0,   floorColor: 0xC9CED2, label: "Grand hall d'entrée" },
+  test3:         { minX: 6,   maxX: 18, minZ: -12, maxZ: 0,   floorColor: 0xB8C4CC, label: 'Salle de test 3' },
+  arene:         { minX: -12, maxX: 12, minZ: -54, maxZ: -36, floorColor: 0xA6D9F0, label: 'Chambre froide' },
+  jungle:        { minX: -15, maxX: 15, minZ: -84, maxZ: -54, floorColor: 0x3E7A3A, label: 'La jungle', outdoor: true },
+};
+
+const LEVEL4_DOORS = [
+  // Autour du hall (départ)
+  { id: 'hall_prep',     roomA: 'hall_entree',        roomB: 'preparation',   orient: 'z', at: -12, pos: 0,   width: 2.5 },
+  { id: 'hall_entrepot', roomA: 'hall_entree',        roomB: 'entrepot',      orient: 'x', at: -6,  pos: -6,  width: 2.5 },
+  { id: 'hall_test3',    roomA: 'hall_entree',        roomB: 'test3',         orient: 'x', at: 6,   pos: -6,  width: 2.5 },
+  // Rangée des tests
+  { id: 'prep_test1',    roomA: 'preparation', roomB: 'test1',         orient: 'x', at: -6,  pos: -18, width: 2.5 },
+  { id: 'prep_test2',    roomA: 'preparation', roomB: 'test2',         orient: 'x', at: 6,   pos: -18, width: 2.5 },
+  { id: 'entrepot_test1', roomA: 'entrepot',   roomB: 'test1',         orient: 'z', at: -12, pos: -12, width: 2.5 },
+  { id: 'test3_test2',   roomA: 'test3',       roomB: 'test2',         orient: 'z', at: -12, pos: 12,  width: 2.5 },
+  // Vers les chaînes de construction
+  { id: 'prep_c2',       roomA: 'preparation', roomB: 'construction2', orient: 'z', at: -24, pos: 0,   width: 2.5 },
+  { id: 'test1_c1',      roomA: 'test1',       roomB: 'construction1', orient: 'z', at: -24, pos: -12, width: 2.5 },
+  { id: 'test2_c3',      roomA: 'test2',       roomB: 'construction3', orient: 'z', at: -24, pos: 12,  width: 2.5 },
+  { id: 'c1_c2',         roomA: 'construction1', roomB: 'construction2', orient: 'x', at: -6, pos: -30, width: 2.5 },
+  { id: 'c2_c3',         roomA: 'construction2', roomB: 'construction3', orient: 'x', at: 6,  pos: -30, width: 2.5 },
+  // Chambre froide du boss — verrouillée jusqu'à récupération de la clé
+  { id: 'c2_arene',      roomA: 'construction2', roomB: 'arene',       orient: 'z', at: -36, pos: 0,   width: 3.0, locked: true },
+  // Porte de la jungle — s'ouvre à la mort du boss
+  { id: 'arene_jungle',  roomA: 'arene',       roomB: 'jungle',        orient: 'z', at: -54, pos: 0,   width: 4.0, locked: true },
+];
+
+// Les poussières, cacas et microbes de ce niveau ont le double de PV (hpMult).
+// Les robots des chaînes de construction sont passifs : ils n'attaquent jamais.
+const LEVEL4_ENEMY_SPAWNS = [
+  // Hall d'entrée (départ) : accueil léger.
+  { room: 'hall_entree',          type: 'caca',      x: -3,  z: -4 },
+  { room: 'hall_entree',          type: 'poussiere', x: 3,   z: -4 },
+
+  // Entrepôt (clé)
+  { room: 'entrepot',      type: 'microbe',   x: -15, z: -9 },
+  { room: 'entrepot',      type: 'microbe',   x: -9,  z: -3 },
+  { room: 'entrepot',      type: 'caca',      x: -15, z: -3 },
+  { room: 'entrepot',      type: 'poussiere', x: -9,  z: -9 },
+
+  // Salle de préparation
+  { room: 'preparation',   type: 'microbe',   x: -3,  z: -21 },
+  { room: 'preparation',   type: 'microbe',   x: 3,   z: -15 },
+  { room: 'preparation',   type: 'caca',      x: 3,   z: -21 },
+  { room: 'preparation',   type: 'poussiere', x: -3,  z: -15 },
+
+  // Salles de test
+  { room: 'test1',         type: 'microbe',   x: -15, z: -15 },
+  { room: 'test1',         type: 'microbe',   x: -9,  z: -21 },
+  { room: 'test1',         type: 'caca',      x: -15, z: -21 },
+  { room: 'test1',         type: 'poussiere', x: -9,  z: -15 },
+
+  { room: 'test2',         type: 'microbe',   x: 15,  z: -15 },
+  { room: 'test2',         type: 'microbe',   x: 9,   z: -21 },
+  { room: 'test2',         type: 'caca',      x: 15,  z: -21 },
+  { room: 'test2',         type: 'poussiere', x: 9,   z: -15 },
+
+  { room: 'test3',         type: 'microbe',   x: 15,  z: -9 },
+  { room: 'test3',         type: 'microbe',   x: 9,   z: -3 },
+  { room: 'test3',         type: 'caca',      x: 15,  z: -3 },
+  { room: 'test3',         type: 'poussiere', x: 12,  z: -7 },
+
+  // Chaînes de construction : 2 tapis (z = centre ± 3) × 3 robots chacune.
+  ...[-12, 0, 12].flatMap((cx) => [-33, -27].flatMap((cz) =>
+    [cx - 3, cx, cx + 3].map((x) => ({ room: null, type: 'robot', x, z: cz }))
+  )),
+
+  { room: 'arene',         type: 'boss',      x: 0,   z: -47 },
+];
+
+// =====================================================================
 // Registre des niveaux
 // =====================================================================
 
@@ -313,6 +404,30 @@ export const LEVELS = [
     weapon: { build: 'aspirateur_ameliore', meleeDamage: 45, meleeRange: 3.0, meleeCooldown: 0.28 },
     coinBonus: 2,
     background: 0x1b2735,
+  },
+  {
+    id: 4,
+    name: "L'usine de robots",
+    rooms: LEVEL4_ROOMS,
+    doors: LEVEL4_DOORS,
+    enemySpawns: LEVEL4_ENEMY_SPAWNS,
+    playerStart: { x: 0, z: -6 },                // grand hall
+    keyPosition: { x: -12, y: 1.05, z: -6 },     // sur la caisse centrale de l'entrepôt
+    lockedDoorId: 'c2_arene',
+    exitDoorId: 'arene_jungle',                  // s'ouvre à la mort du boss
+    finalRoom: 'jungle',                         // salle finale explorable (panneau des scores)
+    scoreBoardPos: { x: -3, z: -83.7 },          // panneau 3D plaqué sur le mur nord de la jungle
+    bossType: 'glace',
+    bossRoom: 'arene',
+    bossLabel: 'BOSS GLACE',
+    // Aspirateur technologique : tir maintenu = boomerang qui revient.
+    weapon: {
+      build: 'aspirateur_tech', meleeDamage: 45, meleeRange: 3.0, meleeCooldown: 0.28,
+      boomerang: true,
+    },
+    hpMult: 2,                                   // « une vie de plus » pour la saleté
+    coinBonus: 3,
+    background: 0x151b22,
   },
 ];
 

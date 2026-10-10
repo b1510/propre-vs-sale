@@ -12,6 +12,7 @@ const MOUSE_SENSITIVITY = 0.0022;
 const PLAYER_RADIUS = 0.35;
 const WEAPON_REST = { x: 0.32, y: -0.28, z: -0.6 };
 const STRIDE = 2.2; // distance entre deux pas
+const BOOMERANG_CHARGE = 0.7; // secondes de tir maintenu avant le lancer
 
 export default class Player {
   constructor(camera, input, level) {
@@ -43,6 +44,14 @@ export default class Player {
     this.wantsMeleeHit = false; // consommé par Game ce frame
     this.weapon = null;
 
+    // Boomerang (aspirateur technologique) : tir maintenu = lancer automatique.
+    this.boomerangEnabled = false;
+    this.boomerangReady = true;     // remis à vrai par Game quand il est revenu
+    this.wantsBoomerang = false;    // consommé par Game ce frame
+    this.chargeRatio = 0;           // 0..1, pour le feedback visuel
+    this._holdTime = 0;
+    this._techHead = null;
+
     // Boost de dégâts temporaire (consommable de boutique).
     this._baseMeleeDamage = 20;
     this._boostTimer = 0;
@@ -73,8 +82,14 @@ export default class Player {
       });
     }
 
+    this.boomerangEnabled = !!cfg.boomerang;
+    this.boomerangReady = true;
+    this._techHead = null;
+    this._holdTime = 0;
+
     this.weapon = new THREE.Group();
-    if (cfg.build === 'aspirateur_ameliore') this._buildAspirateurAmeliore();
+    if (cfg.build === 'aspirateur_tech') this._buildAspirateurTech();
+    else if (cfg.build === 'aspirateur_ameliore') this._buildAspirateurAmeliore();
     else if (cfg.build === 'aspirateur') this._buildAspirateur();
     else this._buildPlumeau();
 
@@ -214,8 +229,69 @@ export default class Player {
     }
   }
 
+  // Aspirateur technologique (niveau 4) : corps blanc, liserés néon et tête
+  // détachable (disque lumineux) qui part en boomerang.
+  _buildAspirateurTech() {
+    const handle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.03, 0.03, 0.5, 8),
+      new THREE.MeshStandardMaterial({ color: 0x1c2833, roughness: 0.4, metalness: 0.5 })
+    );
+    handle.position.set(0, -0.12, 0);
+    this.weapon.add(handle);
+
+    const body = new THREE.Mesh(
+      new THREE.BoxGeometry(0.2, 0.26, 0.24),
+      new THREE.MeshStandardMaterial({ color: 0xeceff1, roughness: 0.25, metalness: 0.5 })
+    );
+    body.position.set(0, 0.04, 0);
+    this.weapon.add(body);
+
+    const neon = new THREE.MeshBasicMaterial({ color: 0x00e5ff });
+    for (const y of [0.12, -0.04]) {
+      const strip = new THREE.Mesh(new THREE.BoxGeometry(0.205, 0.022, 0.245), neon);
+      strip.position.set(0, y, 0);
+      this.weapon.add(strip);
+    }
+    const core = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.05, 12), neon);
+    core.position.set(0.105, 0.04, 0);
+    core.rotation.z = Math.PI / 2;
+    this.weapon.add(core);
+
+    const tube = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.035, 0.34, 10),
+      new THREE.MeshStandardMaterial({ color: 0xb0bec5, roughness: 0.25, metalness: 0.7 })
+    );
+    tube.position.set(0, 0.3, 0.02);
+    tube.rotation.x = 0.25;
+    this.weapon.add(tube);
+
+    // Tête détachable : anneau chromé + disque d'aspiration lumineux.
+    const head = new THREE.Group();
+    head.position.set(0, 0.52, 0.07);
+    head.rotation.x = 0.25;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.13, 0.03, 8, 20),
+      new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.2, metalness: 0.8 })
+    );
+    ring.rotation.x = Math.PI / 2;
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.11, 0.025, 18), neon);
+    head.add(ring, disc);
+    this.weapon.add(head);
+    this._techHead = head;
+  }
+
+  // La tête de l'aspirateur est absente tant que le boomerang est en vol.
+  setBoomerangOut(out) {
+    this.boomerangReady = !out;
+    if (this._techHead) this._techHead.visible = !out;
+  }
+
   reset(x, z) {
     this.hp = this.maxHp;
+    this._holdTime = 0;
+    this.chargeRatio = 0;
+    this.boomerangReady = true;
+    if (this._techHead) this._techHead.visible = true;
     this.position.set(x, PLAYER_EYE, z);
     this.velocityY = 0;
     this.yaw = 0;
@@ -285,6 +361,7 @@ export default class Player {
 
   update(delta) {
     this.wantsMeleeHit = false;
+    this.wantsBoomerang = false;
     this.wantsStep = false;
     this._regen(delta);
     this._updateBoost(delta);
@@ -369,6 +446,20 @@ export default class Player {
       this._swingTime = 0.2;
       this.wantsMeleeHit = true;
     }
+
+    // --- Boomerang : tir maintenu assez longtemps → lancer automatique ---
+    if (this.boomerangEnabled && this.boomerangReady && this.input.attackHeld) {
+      this._holdTime += delta;
+      if (this._holdTime >= BOOMERANG_CHARGE) {
+        this._holdTime = 0;
+        this.wantsBoomerang = true;
+      }
+    } else {
+      this._holdTime = 0;
+    }
+    // Le retour visuel démarre après 0.2 s pour ne pas parasiter un simple clic.
+    this.chargeRatio = Math.max(0, Math.min(1, (this._holdTime - 0.2) / (BOOMERANG_CHARGE - 0.2)));
+
     this._updateWeaponAnim(delta);
 
     this._updateCamera();
@@ -379,6 +470,14 @@ export default class Player {
     const bobX = Math.cos(this._bobPhase) * 0.012;
     const bobY = Math.abs(Math.sin(this._bobPhase)) * 0.018;
     this.weapon.position.set(WEAPON_REST.x + bobX, WEAPON_REST.y + bobY, WEAPON_REST.z);
+
+    // Charge du boomerang : l'arme vibre et la tête tourne de plus en plus vite.
+    if (this.chargeRatio > 0) {
+      const k = this.chargeRatio * 0.012;
+      this.weapon.position.x += (Math.random() * 2 - 1) * k;
+      this.weapon.position.y += (Math.random() * 2 - 1) * k;
+    }
+    if (this._techHead) this._techHead.rotation.y += delta * (3 + this.chargeRatio * 25);
 
     if (this._swingTime > 0) {
       this._swingTime -= delta;

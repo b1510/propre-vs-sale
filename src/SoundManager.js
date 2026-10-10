@@ -40,6 +40,8 @@ export default class SoundManager {
       { drone: 49,   bass: 49,   bpm: 104, scale: [196, 233.1, 261.6, 293.7, 349.2, 392] },
       { drone: 55,   bass: 58.3, bpm: 128, scale: [220, 261.6, 293.7, 349.2, 392, 466.2] },
       { drone: 61.7, bass: 61.7, bpm: 144, scale: [246.9, 293.7, 329.6, 392, 440, 523.3] },
+      // Niveau 4 : usine de robots, grave et mécanique, plus rapide.
+      { drone: 41.2, bass: 41.2, bpm: 156, scale: [164.8, 196, 220, 246.9, 293.7, 329.6] },
     ];
     const amb = AMBIANCES[Math.min(Math.max(level, 1), AMBIANCES.length) - 1];
 

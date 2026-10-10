@@ -39,9 +39,27 @@ export default class UI {
     this.bossRoom = config.bossRoom;
     this.bounds = getMapBounds(config.rooms);
     this._computeMinimapTransform();
+    this._baseBossLabel = config.bossLabel || null;
     if (this.bossLabel && config.bossLabel) {
       this.bossLabel.textContent = config.bossLabel;
     }
+    this.bossFill.classList.remove('phase1', 'phase2');
+    this.setVictoryHint(false);
+  }
+
+  // Boss à plusieurs barres de vie : libellé « BOSS · 1/2 » et couleur de la barre.
+  setBossPhase(phase, total = 2) {
+    if (this.bossLabel && this._baseBossLabel) {
+      this.bossLabel.textContent = `${this._baseBossLabel}  ·  ${phase}/${total}`;
+    }
+    this.bossFill.classList.toggle('phase1', phase === 1);
+    this.bossFill.classList.toggle('phase2', phase === 2);
+  }
+
+  // Aide affichée pendant l'exploration finale (jungle).
+  setVictoryHint(visible) {
+    const el = document.getElementById('victoryHint');
+    if (el) el.style.display = visible ? 'flex' : 'none';
   }
 
   _computeMinimapTransform() {

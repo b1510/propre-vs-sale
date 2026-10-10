@@ -42,6 +42,7 @@ export default class Stains {
   build(config, perRoom = 5, rng = Math.random) {
     const rooms = config.rooms;
     for (const name in rooms) {
+      if (name === config.finalRoom) continue; // salle de victoire : pas de saleté
       const d = rooms[name];
       const count = perRoom;
       this.roomTotals[name] = count;

@@ -11,6 +11,10 @@ import Microbe from './enemies/Microbe.js';
 import TacosBoss from './enemies/TacosBoss.js';
 import BurgerBoss from './enemies/BurgerBoss.js';
 import PizzaBoss from './enemies/PizzaBoss.js';
+import GlaceBoss from './enemies/GlaceBoss.js';
+import Robot from './enemies/Robot.js';
+import Boomerang, { BOOMERANG_HIT_RADIUS } from './Boomerang.js';
+import ScoreBoard from './ScoreBoard.js';
 import UI from './ui/UI.js';
 import Menu from './ui/Menu.js';
 import Shop, { SHOP_ITEMS } from './ui/Shop.js';
@@ -33,16 +37,18 @@ const RESPAWN_DELAY = 3; // secondes avant réapparition en PvP
 const ENEMY_COLORS = {
   caca: 0x8B4513, poussiere: 0xAAAAAA, microbe: 0x8BC34A,
   tacos: 0xD2691E, burger: 0xC8842A, pizza: 0xE65100,
+  glace: 0xFFC1D6, robot: 0x90A4AE,
 };
 
 // Couleurs des projectiles distants (rendu côté non-host).
 const PROJ_COLORS = {
   caca: 0x6B3A2A, poussiere: 0x888888, spore: 0x76ff03,
   viande: 0x8B0000, boule_de_feu: 0xff5500, part_de_pizza: 0xffa726,
+  glace: 0xbfe9ff, glace_fondue: 0xff8fb1,
 };
 
 // Classe de boss par type déclaré dans la config du niveau.
-const BOSS_CLASSES = { tacos: TacosBoss, burger: BurgerBoss, pizza: PizzaBoss };
+const BOSS_CLASSES = { tacos: TacosBoss, burger: BurgerBoss, pizza: PizzaBoss, glace: GlaceBoss };
 
 // Constantes des consommables/améliorations.
 const HEAL_AMOUNT = 60;
@@ -91,6 +97,10 @@ export default class Game {
     this.sound = new SoundManager();
 
     this.state = 'menu'; // menu | playing | shop | gameover | victory
+    this.boomerang = null;      // projectile de l'aspirateur technologique en vol
+    this.victoryMode = false;   // dernier boss battu : exploration de la jungle
+    this.scoreBoard = null;     // panneau 3D des scores (jungle)
+    this._finalScore = null;
     this.levelIndex = 0;
     this.clock = new THREE.Clock();
 
@@ -109,6 +119,13 @@ export default class Game {
     this.menu.setupLevelSelect(LEVELS, (i) => this.startGame(i));
     this.menu.onRestart = () => this.startGame();
     this.menu.onMultiplayer = () => this._openLobby();
+    // Fin de partie (jungle) : retour à l'exploration / au menu.
+    this.menu.onBackToGame = () => this._backToJungle();
+    this.menu.onMainMenu = () => this._exitToMenu();
+    document.getElementById('vhScore')?.addEventListener('click', () => this._openVictoryScreen());
+    document.getElementById('vhMenu')?.addEventListener('click', () => this._exitToMenu());
+    this._prevKeyE = false;
+    this._prevKeyM = false;
 
     // --- Multijoueur ---
     this.lobby = new Lobby();
@@ -146,6 +163,9 @@ export default class Game {
 
   _buildWorld(keepCoins = false) {
     // Nettoyage si rejoue / change de niveau.
+    this._clearBoomerang();
+    this._clearScoreBoard();
+    this.victoryMode = false;
     if (this.level) {
       this.scene.remove(this.level.group);
       this.level.dispose();
@@ -198,12 +218,18 @@ export default class Game {
       if (s.type === 'caca') e = new Caca(s.x, s.z);
       else if (s.type === 'poussiere') e = new Poussiere(s.x, s.z);
       else if (s.type === 'microbe') e = new Microbe(s.x, s.z);
+      else if (s.type === 'robot') e = new Robot(s.x, s.z);
       else if (s.type === 'boss') {
         const BossClass = BOSS_CLASSES[config.bossType] || TacosBoss;
         e = new BossClass(s.x, s.z);
         this.boss = e;
       }
       if (e) {
+        // « Une vie de plus » : PV multipliés (ennemis normaux uniquement).
+        if (config.hpMult && s.type !== 'boss' && s.type !== 'robot') {
+          e.hp *= config.hpMult;
+          e.maxHp = e.hp;
+        }
         e.coinDrop += config.coinBonus || 0;
         e.particleColor = ENEMY_COLORS[s.type === 'boss' ? config.bossType : s.type] || 0xffffff;
         this.enemies.push(e);
@@ -284,6 +310,106 @@ export default class Game {
       clean_pct: Math.round(cleanPct),
       won,
     };
+  }
+
+  // --- Victoire : jungle explorable + panneau des scores ---
+
+  // Dernier boss battu : plus d'ennemis, la porte de la jungle s'ouvre et le
+  // panneau des scores apparaît. Le joueur explore librement (E : son score,
+  // M : menu) ; appelé aussi chez les clients non-host en coop.
+  _beginVictory() {
+    if (this.victoryMode) return;
+    this.victoryMode = true;
+    this.sound.play('victory');
+    this.sound.stopMusic();
+
+    for (const e of this.enemies) {
+      if (!e.dead) { e.dead = true; e.alive = false; }
+    }
+    for (const p of this.projectiles) { this.scene.remove(p.mesh); p.dispose(); }
+    this.projectiles = [];
+    if (this.multiplayer) this._clearRemoteProj();
+    this._clearBoomerang();
+    this.boss = null;
+    this.ui.setBossVisible(false);
+    this.ui.setScoreboardVisible(false);
+
+    if (this.config.exitDoorId) this.level.unlockDoor(this.config.exitDoorId);
+    this._finalScore = this._buildScore(true);
+
+    if (!this.config.scoreBoardPos) {
+      this._openVictoryScreen(); // niveau sans jungle : écran de victoire direct
+      return;
+    }
+    this.ui.setVictoryHint(true);
+    this.ui.showMessage('🏆 VICTOIRE ! Une porte s\'ouvre sur la jungle…', 5);
+    this._spawnScoreBoard();
+  }
+
+  _updateVictory() {
+    const e = this.input.isKey('e');
+    const m = this.input.isKey('m');
+    if (e && !this._prevKeyE) this._openVictoryScreen();
+    else if (m && !this._prevKeyM) this._exitToMenu();
+    this._prevKeyE = e;
+    this._prevKeyM = m;
+  }
+
+  _spawnScoreBoard() {
+    this._clearScoreBoard();
+    this.scoreBoard = new ScoreBoard(this.scene, this.config.scoreBoardPos);
+    this._refreshScoreBoard();
+  }
+
+  _clearScoreBoard() {
+    if (!this.scoreBoard) return;
+    this.scoreBoard.dispose();
+    this.scoreBoard = null;
+  }
+
+  // (Re)charge le classement en ligne et redessine le panneau. Sans backend
+  // configuré, le panneau n'affiche que le score de la partie.
+  async _refreshScoreBoard() {
+    const sb = this.scoreBoard;
+    if (!sb || !this._finalScore) return;
+    let pseudo = '';
+    try { pseudo = localStorage.getItem('pvs_pseudo') || ''; } catch { /* stockage indisponible */ }
+    const mine = { ...this._finalScore, name: pseudo };
+    const submitted = this.menu.victorySubmitted && this.menu._lastWinStats === this._finalScore;
+
+    if (!this.leaderboard.isConfigured()) {
+      sb.setData({ status: 'offline', rows: [], mine, submitted });
+      return;
+    }
+    sb.setData({ status: 'loading', mine });
+    const rows = await this.leaderboard.fetchTop(10);
+    if (this.scoreBoard !== sb) return; // niveau reconstruit entre-temps
+    sb.setData({ status: 'ok', rows, mine, submitted });
+  }
+
+  // Ouvre l'écran de victoire (saisie du pseudo + enregistrement du score).
+  _openVictoryScreen() {
+    if (this.state !== 'playing' || !this._finalScore) return;
+    this.state = 'victory';
+    this.input.exitLock();
+    this.menu.showVictory(this._finalScore);
+  }
+
+  _backToJungle() {
+    this.menu.hideAll();
+    this.state = 'playing';
+    this.clock.getDelta();
+    this.input.requestLock();
+    this._refreshScoreBoard();
+  }
+
+  _exitToMenu() {
+    this.sound.stopMusic();
+    this.input.exitLock();
+    this.ui.setVictoryHint(false);
+    if (this.multiplayer) this._teardownMultiplayer();
+    this.state = 'menu';
+    this.menu.showMenu();
   }
 
   // --- Boutique (entre les niveaux) ---
@@ -438,7 +564,6 @@ export default class Game {
   }
 
   _meleeEnemies(forward, origin, dmg, crit) {
-    const authoritative = !this.multiplayer || this.isHost;
     for (const e of this.enemies) {
       if (e.dead) continue;
       const to = new THREE.Vector3(
@@ -447,23 +572,67 @@ export default class Game {
       const dist = to.length();
       if (dist > this.player.meleeRange + (e.radius || 0.5)) continue;
       to.normalize();
-      if (to.dot(forward) > 0.45) {
-        const head = new THREE.Vector3(e.position.x, e.position.y + 0.7, e.position.z);
-        this.ui.showDamageNumber(head, dmg, this.camera, crit);
-        this.ui.flashCrosshair();
-        this.particles.burst(e.position, e.particleColor || 0xffffff, 6,
-          { speed: 2, up: 1.5, life: 0.4 });
-        if (authoritative) {
-          e.takeDamage(dmg);
-          if (e.dead) this._onEnemyKilled(e, this.selfId);
-          else this.sound.play('hit');
-        } else {
-          // Coop non-host : les dégâts aux ennemis sont appliqués par le host.
-          this.net.send({ type: MSG.ENEMY_HIT, i: this.enemies.indexOf(e), dmg });
-          this.sound.play('hit');
-        }
+      if (to.dot(forward) > 0.45) this._hitEnemy(e, dmg, crit);
+    }
+  }
+
+  // Inflige des dégâts à un ennemi (mêlée ou boomerang) : effets locaux, puis
+  // application directe (solo / host) ou envoi au host (coop non-host).
+  _hitEnemy(e, dmg, crit) {
+    const authoritative = !this.multiplayer || this.isHost;
+    const head = new THREE.Vector3(e.position.x, e.position.y + 0.7, e.position.z);
+    this.ui.showDamageNumber(head, dmg, this.camera, crit);
+    this.ui.flashCrosshair();
+    this.particles.burst(e.position, e.particleColor || 0xffffff, 6,
+      { speed: 2, up: 1.5, life: 0.4 });
+    if (authoritative) {
+      e.takeDamage(dmg);
+      if (e.dead) this._onEnemyKilled(e, this.selfId);
+      else this.sound.play('hit');
+    } else {
+      // Coop non-host : les dégâts aux ennemis sont appliqués par le host.
+      this.net.send({ type: MSG.ENEMY_HIT, i: this.enemies.indexOf(e), dmg });
+      this.sound.play('hit');
+    }
+  }
+
+  // --- Boomerang de l'aspirateur technologique (tir maintenu) ---
+
+  _throwBoomerang() {
+    if (this.boomerang || this._localDead || this.victoryMode) return;
+    if (this.multiplayer && this.mode === MODE.PVP) return;
+    const dmg = this.player.meleeDamage * 1.5;
+    this.boomerang = new Boomerang(this.player.position, this.player.getForward(), dmg);
+    this.scene.add(this.boomerang.mesh);
+    this.player.setBoomerangOut(true);
+    this.sound.play('swing');
+  }
+
+  _updateBoomerang(delta) {
+    const b = this.boomerang;
+    if (!b) return;
+    b.update(delta, this.player.position, this.level);
+    const crit = this.player.boostRemaining > 0;
+    for (const e of this.enemies) {
+      if (e.dead || b.hit.has(e)) continue;
+      const dx = e.position.x - b.position.x, dz = e.position.z - b.position.z;
+      if (Math.hypot(dx, dz) <= BOOMERANG_HIT_RADIUS + (e.radius || 0.5)) {
+        b.hit.add(e);
+        this._hitEnemy(e, b.damage, crit);
       }
     }
+    if (b.done) {
+      this._clearBoomerang();
+      this.sound.play('pickup');
+    }
+  }
+
+  _clearBoomerang() {
+    if (!this.boomerang) return;
+    this.scene.remove(this.boomerang.mesh);
+    this.boomerang.dispose();
+    this.boomerang = null;
+    if (this.player) this.player.setBoomerangOut(false);
   }
 
   _meleePvp(forward, origin, dmg, crit) {
@@ -534,11 +703,7 @@ export default class Game {
         this.sound.play('unlock');
         this._openShop();
       } else {
-        this.sound.play('victory');
-        this.sound.stopMusic();
-        this.state = 'victory';
-        this.input.exitLock();
-        this.menu.showVictory(this._buildScore(true));
+        this._beginVictory(); // dernier boss : la jungle s'ouvre
       }
     } else {
       this.sound.play('enemyDeath');
@@ -553,6 +718,7 @@ export default class Game {
       const tgt = this._nearestPlayer(players, e.position);
       const actions = e.update(delta, tgt.pos, this.level);
       this._handleEnemyActions(e, actions, tgt.id);
+      if (e.isBoss) this._checkBossPhase(e);
     }
     this._updateBossBar();
   }
@@ -567,6 +733,16 @@ export default class Game {
     }
   }
 
+  // Boss à phases : effets de la transformation (une seule fois par changement).
+  _checkBossPhase(e) {
+    if (!e.phaseChanged) return;
+    e.phaseChanged = false;
+    this.sound.play('unlock');
+    this.particles.burst(e.position, 0xffc1d6, 30, { speed: 4, up: 3, life: 1.2, size: 1.4 });
+    this.player.addShake(0.8);
+    this.ui.showMessage('🍦 La glace fond… ses boules font plus mal !', 3.5);
+  }
+
   // Barre de vie boss si le boss est en vue du joueur local.
   _updateBossBar() {
     const playerPos = this.player.position;
@@ -574,7 +750,10 @@ export default class Game {
       const d = this.boss.position.distanceTo(playerPos);
       const inFight = d < this.boss.sightRange;
       this.ui.setBossVisible(inFight);
-      if (inFight) this.ui.setBossHealth(this.boss.hp, this.boss.maxHp);
+      if (inFight) {
+        this.ui.setBossHealth(this.boss.hp, this.boss.maxHp);
+        if (this.boss.phase) this.ui.setBossPhase(this.boss.phase, 2);
+      }
     } else {
       this.ui.setBossVisible(false);
     }
@@ -639,6 +818,9 @@ export default class Game {
       if (this.player.wantsMeleeHit) {
         this._doMeleeAttack();
       }
+      if (this.player.wantsBoomerang) this._throwBoomerang();
+      this._updateBoomerang(delta);
+      if (this.victoryMode) this._updateVictory();
 
       this.level.update(delta);
 
@@ -800,7 +982,7 @@ export default class Game {
     this._lastWorldSent = now;
     const enemies = this.enemies.map((e, i) => ({
       i, x: +e.position.x.toFixed(2), z: +e.position.z.toFixed(2),
-      hp: Math.round(e.hp), dead: e.dead,
+      hp: Math.round(e.hp), dead: e.dead, ph: e.phase,
     }));
     const proj = this.projectiles.map((p) => ({
       id: p.netId, t: p.type,
@@ -814,7 +996,7 @@ export default class Game {
     const t = 1 - Math.exp(-12 * delta);
     for (const e of this.enemies) {
       if (e.dead) { this._fadeDeadEnemy(e); continue; }
-      if (e._netTarget) {
+      if (e._netTarget && !e.isStatic) {
         e.group.position.x += (e._netTarget.x - e.group.position.x) * t;
         e.group.position.z += (e._netTarget.z - e.group.position.z) * t;
         const dx = this.player.position.x - e.group.position.x;
@@ -822,6 +1004,7 @@ export default class Game {
         e.group.rotation.y = Math.atan2(dx, dz);
       }
       e._animate?.(delta, performance.now() * 0.001);
+      if (e.isBoss) this._checkBossPhase(e);
     }
     this._updateBossBar();
   }
@@ -869,6 +1052,8 @@ export default class Game {
     for (const es of m.enemies) {
       const e = this.enemies[es.i];
       if (!e) continue;
+      // Boss à phases : la phase doit être appliquée AVANT les PV (elle les réinitialise).
+      if (es.ph && e.setPhase && e.phase !== es.ph) e.setPhase(es.ph);
       e.hp = es.hp;
       e._netTarget = { x: es.x, z: es.z };
       if (es.dead && !e.dead) {
@@ -898,7 +1083,7 @@ export default class Game {
       this._goToLevel(this.levelIndex + 1);
     } else {
       this.net.send({ type: MSG.VICTORY });
-      this._mpVictory();
+      this._beginVictory();
     }
   }
 
@@ -916,15 +1101,6 @@ export default class Game {
     const config = LEVELS[index];
     this.ui.showMessage(`Niveau ${config.id} : ${config.name}`, 3.5);
     this.clock.getDelta();
-  }
-
-  _mpVictory() {
-    this.sound.play('victory');
-    this.sound.stopMusic();
-    this.state = 'victory';
-    this.input.exitLock();
-    this.ui.setScoreboardVisible(false);
-    this.menu.showVictory(this._buildScore(true));
   }
 
   // --- Mort & réapparition du joueur local ---
@@ -1019,7 +1195,7 @@ export default class Game {
       if (!this.isHost) { this._stainSeed = m.seed >>> 0; this._goToLevel(m.index); }
     });
 
-    net.on(MSG.VICTORY, () => { if (!this.isHost) this._mpVictory(); });
+    net.on(MSG.VICTORY, () => { if (!this.isHost) this._beginVictory(); });
 
     // Un joueur quitte en cours de partie.
     net.on(MSG.PLAYERS, (m) => {

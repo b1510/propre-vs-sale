@@ -32,6 +32,7 @@ export default class InputManager {
     this.touchLookDX = 0;            // delta regard (pixels) accumulé
     this.touchLookDY = 0;
     this.touchJump = false;          // bouton saut tactile maintenu
+    this.touchAttackHeld = false;    // bouton attaque tactile maintenu
 
     this._prevGpJump   = false;
     this._prevGpAttack = false;
@@ -101,6 +102,11 @@ export default class InputManager {
   // Déclenche une attaque depuis une commande tactile (front montant).
   triggerAttack() { this.leftJustPressed = true; }
 
+  // Tir maintenu (clic gauche, bouton manette ou bouton tactile enfoncé).
+  get attackHeld() {
+    return this.leftDown || this._prevGpAttack || this.touchAttackHeld;
+  }
+
   // Retourne et efface le front montant attaque (clic ou bouton manette).
   consumeLeftClick() {
     const v = this.leftJustPressed;
@@ -122,6 +128,7 @@ export default class InputManager {
       this.gpLook   = { x: 0, y: 0 };
       this.gpJump   = false;
       this.gpSprint = false;
+      this._prevGpAttack = false;
       return;
     }
 
