@@ -309,6 +309,7 @@ export default class Player {
   }
 
   takeDamage(dmg) {
+    if (this.godMode) return; // invincible (test)
     this.hp = Math.max(0, this.hp - dmg);
     this._regenTimer = this.regenDelay; // suspend la régénération
   }

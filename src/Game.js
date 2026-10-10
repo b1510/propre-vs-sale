@@ -116,7 +116,8 @@ export default class Game {
     });
 
     this.menu.onPlay = () => this.startGame();
-    this.menu.setupLevelSelect(LEVELS, (i) => this.startGame(i));
+    this.menu.setupLevelSelect(LEVELS, (i) => this.startGame(i),
+      (on) => { this.godMode = on; });
     this.menu.onRestart = () => this.startGame();
     this.menu.onMultiplayer = () => this._openLobby();
     // Fin de partie (jungle) : retour à l'exploration / au menu.
@@ -198,6 +199,7 @@ export default class Game {
     }
 
     this.player = new Player(this.camera, this.input, this.level);
+    this.player.godMode = !!this.godMode;
     this.player.setWeapon(config.weapon);
     this.player.maxHp = 100 + this.upgrades.bonusMaxHp; // bonus permanents
     this.player.reset(config.playerStart.x, config.playerStart.z);
@@ -254,7 +256,8 @@ export default class Game {
     this.sound.resume(); // débloque l'audio (geste utilisateur)
     if (this.multiplayer) this._teardownMultiplayer(); // repart en solo proprement
     this.levelIndex = startLevel;
-    this._cheated = startLevel > 0; // partie via le code secret : hors classement
+    // Partie via le code secret (niveau choisi ou god mode) : hors classement.
+    this._cheated = startLevel > 0 || !!this.godMode;
     this.coins = 0;
     this.runStartTime = performance.now(); // pour le bonus de rapidité du score
     this.inventory = { heal: 0, damage: 0 };

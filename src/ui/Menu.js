@@ -87,10 +87,23 @@ export default class Menu {
 
   // Konami code (↑↑↓↓←→←→ B A) ou 5 appuis rapides sur la version (mobile) :
   // affiche le sélecteur de niveau. levels = [{ id, name }].
-  setupLevelSelect(levels, onPick) {
+  setupLevelSelect(levels, onPick, onGodMode) {
     const wrap = document.getElementById('levelSelect');
     if (!wrap) return;
     wrap.innerHTML = '<div class="lb-title">🎮 Choix du niveau</div>';
+
+    // God mode : invincibilité pour les tests (partie hors classement).
+    const god = document.createElement('button');
+    god.className = 'secondary';
+    let godOn = false;
+    const renderGod = () => { god.textContent = `🛡️ God mode : ${godOn ? 'ON' : 'OFF'}`; };
+    renderGod();
+    god.addEventListener('click', () => {
+      godOn = !godOn;
+      renderGod();
+      if (onGodMode) onGodMode(godOn);
+    });
+    wrap.appendChild(god);
     levels.forEach((l, i) => {
       const b = document.createElement('button');
       b.className = 'secondary';
