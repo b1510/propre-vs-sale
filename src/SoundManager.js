@@ -35,22 +35,27 @@ export default class SoundManager {
     gain.gain.linearRampToValueAtTime(this._musicVol, ctx.currentTime + 1.5);
     gain.connect(ctx.destination);
 
-    // Drone grave d'ambiance (plus tendu au niveau 2).
+    // Ambiance par niveau : plus le niveau monte, plus c'est tendu et rapide.
+    const AMBIANCES = [
+      { drone: 49,   bass: 49,   bpm: 104, scale: [196, 233.1, 261.6, 293.7, 349.2, 392] },
+      { drone: 55,   bass: 58.3, bpm: 128, scale: [220, 261.6, 293.7, 349.2, 392, 466.2] },
+      { drone: 61.7, bass: 61.7, bpm: 144, scale: [246.9, 293.7, 329.6, 392, 440, 523.3] },
+    ];
+    const amb = AMBIANCES[Math.min(Math.max(level, 1), AMBIANCES.length) - 1];
+
+    // Drone grave d'ambiance.
     const drone = ctx.createOscillator();
     const dGain = ctx.createGain();
     drone.type = 'sine';
-    drone.frequency.value = level >= 2 ? 55 : 49;
+    drone.frequency.value = amb.drone;
     dGain.gain.value = 0.5;
     drone.connect(dGain); dGain.connect(gain);
     drone.start();
 
     // Gamme mineure + basse, tempo selon le niveau.
-    const scale = level >= 2
-      ? [220, 261.6, 293.7, 349.2, 392, 466.2]
-      : [196, 233.1, 261.6, 293.7, 349.2, 392];
-    const bass = level >= 2 ? 58.3 : 49;
-    const bpm = level >= 2 ? 128 : 104;
-    const beat = 60 / bpm;
+    const scale = amb.scale;
+    const bass = amb.bass;
+    const beat = 60 / amb.bpm;
     let step = 0;
     const interval = setInterval(() => {
       if (!this._music) return;

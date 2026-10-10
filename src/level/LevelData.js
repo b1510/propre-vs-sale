@@ -163,6 +163,105 @@ const LEVEL2_ENEMY_SPAWNS = [
 ];
 
 // =====================================================================
+// NIVEAU 3 — L'école
+// Grille 3 colonnes × 3 rangées (cellules 12×12) + la cour au sud.
+// Colonnes X : C0[-18,-6] C1[-6,6] C2[6,18]
+// Rangées Z  : R0[-36,-24] R1[-24,-12] R2[-12,0]
+// Cour       : X[-18,18] Z[0,20] (extérieur)
+//
+//         C0              C1                 C2
+//   R0  classe1         classe2            classe3
+//   R1  classe4     salle_maitres      salle_activite
+//   R2  toilettes3     dortoir            toilettes4
+//              ========= COUR =========           (porte verrouillée)
+// =====================================================================
+
+const LEVEL3_ROOMS = {
+  // Rangée nord (R0) — les salles de classe du fond
+  classe1:        { minX: -18, maxX: -6, minZ: -36, maxZ: -24, floorColor: 0xC8A97E, label: 'Classe 1' },
+  classe2:        { minX: -6,  maxX: 6,  minZ: -36, maxZ: -24, floorColor: 0xC2A478, label: 'Classe 2' },
+  classe3:        { minX: 6,   maxX: 18, minZ: -36, maxZ: -24, floorColor: 0xCBAE85, label: 'Classe 3' },
+  // Rangée centrale (R1)
+  classe4:        { minX: -18, maxX: -6, minZ: -24, maxZ: -12, floorColor: 0xBFA073, label: 'Classe 4' },
+  salle_maitres:  { minX: -6,  maxX: 6,  minZ: -24, maxZ: -12, floorColor: 0x9E7B5A, label: 'Salle des maîtres' },
+  salle_activite: { minX: 6,   maxX: 18, minZ: -24, maxZ: -12, floorColor: 0xD8B77E, label: "Salle d'activité" },
+  // Rangée sud (R2)
+  toilettes3:     { minX: -18, maxX: -6, minZ: -12, maxZ: 0,   floorColor: 0x8FA3A8, label: 'Toilettes' },
+  dortoir:        { minX: -6,  maxX: 6,  minZ: -12, maxZ: 0,   floorColor: 0xA88FA0, label: 'Dortoir' },
+  toilettes4:     { minX: 6,   maxX: 18, minZ: -12, maxZ: 0,   floorColor: 0x8FA3A8, label: 'Toilettes' },
+  // Cour de récréation (extérieur : ciel au lieu d'un plafond)
+  cour:           { minX: -18, maxX: 18, minZ: 0,   maxZ: 20,  floorColor: 0x6E7076, label: 'Cour de récréation', outdoor: true },
+};
+
+const LEVEL3_DOORS = [
+  // Autour du dortoir (départ)
+  { id: 'dortoir_toil3',    roomA: 'dortoir',        roomB: 'toilettes3',     orient: 'x', at: -6,  pos: -6,  width: 2.5 },
+  { id: 'dortoir_toil4',    roomA: 'dortoir',        roomB: 'toilettes4',     orient: 'x', at: 6,   pos: -6,  width: 2.5 },
+  { id: 'dortoir_maitres',  roomA: 'dortoir',        roomB: 'salle_maitres',  orient: 'z', at: -12, pos: 0,   width: 2.5 },
+  // Rangée centrale
+  { id: 'maitres_classe4',  roomA: 'salle_maitres',  roomB: 'classe4',        orient: 'x', at: -6,  pos: -18, width: 2.5 },
+  { id: 'maitres_activite', roomA: 'salle_maitres',  roomB: 'salle_activite', orient: 'x', at: 6,   pos: -18, width: 2.5 },
+  // Salles de classe
+  { id: 'classe4_classe1',  roomA: 'classe4',        roomB: 'classe1',        orient: 'z', at: -24, pos: -12, width: 2.5 },
+  { id: 'classe1_classe2',  roomA: 'classe1',        roomB: 'classe2',        orient: 'x', at: -6,  pos: -30, width: 2.5 },
+  { id: 'classe2_classe3',  roomA: 'classe2',        roomB: 'classe3',        orient: 'x', at: 6,   pos: -30, width: 2.5 },
+  { id: 'activite_classe3', roomA: 'salle_activite', roomB: 'classe3',        orient: 'z', at: -24, pos: 12,  width: 2.5 },
+  // Porte de la cour — verrouillée jusqu'à récupération de la clé
+  { id: 'dortoir_cour',     roomA: 'dortoir',        roomB: 'cour',           orient: 'z', at: 0,   pos: 0,   width: 2.5, locked: true },
+];
+
+// 4 mobs par pièce intérieure (2 microbes + 1 caca + 1 poussiere).
+// +2 pièces via coinBonus du niveau.
+const LEVEL3_ENEMY_SPAWNS = [
+  { room: 'dortoir',        type: 'microbe',   x: -3,  z: -9 },
+  { room: 'dortoir',        type: 'microbe',   x: 3,   z: -9 },
+  { room: 'dortoir',        type: 'caca',      x: -3,  z: -3 },
+  { room: 'dortoir',        type: 'poussiere', x: 3,   z: -3 },
+
+  { room: 'toilettes3',     type: 'microbe',   x: -15, z: -9 },
+  { room: 'toilettes3',     type: 'microbe',   x: -9,  z: -3 },
+  { room: 'toilettes3',     type: 'caca',      x: -15, z: -3 },
+  { room: 'toilettes3',     type: 'poussiere', x: -12, z: -7 },
+
+  { room: 'toilettes4',     type: 'microbe',   x: 15,  z: -9 },
+  { room: 'toilettes4',     type: 'microbe',   x: 9,   z: -3 },
+  { room: 'toilettes4',     type: 'caca',      x: 15,  z: -3 },
+  { room: 'toilettes4',     type: 'poussiere', x: 12,  z: -7 },
+
+  { room: 'salle_maitres',  type: 'microbe',   x: -3,  z: -15 },
+  { room: 'salle_maitres',  type: 'microbe',   x: 3,   z: -15 },
+  { room: 'salle_maitres',  type: 'caca',      x: -4,  z: -22 },
+  { room: 'salle_maitres',  type: 'poussiere', x: 4,   z: -22 },
+
+  { room: 'classe4',        type: 'microbe',   x: -15, z: -15 },
+  { room: 'classe4',        type: 'microbe',   x: -9,  z: -21 },
+  { room: 'classe4',        type: 'caca',      x: -15, z: -21 },
+  { room: 'classe4',        type: 'poussiere', x: -11, z: -16 },
+
+  { room: 'salle_activite', type: 'microbe',   x: 15,  z: -15 },
+  { room: 'salle_activite', type: 'microbe',   x: 9,   z: -21 },
+  { room: 'salle_activite', type: 'caca',      x: 15,  z: -21 },
+  { room: 'salle_activite', type: 'poussiere', x: 11,  z: -16 },
+
+  { room: 'classe1',        type: 'microbe',   x: -15, z: -27 },
+  { room: 'classe1',        type: 'microbe',   x: -9,  z: -33 },
+  { room: 'classe1',        type: 'caca',      x: -15, z: -33 },
+  { room: 'classe1',        type: 'poussiere', x: -11, z: -28 },
+
+  { room: 'classe2',        type: 'microbe',   x: -3,  z: -27 },
+  { room: 'classe2',        type: 'microbe',   x: 3,   z: -33 },
+  { room: 'classe2',        type: 'caca',      x: -3,  z: -33 },
+  { room: 'classe2',        type: 'poussiere', x: 3,   z: -27 },
+
+  { room: 'classe3',        type: 'microbe',   x: 15,  z: -27 },
+  { room: 'classe3',        type: 'microbe',   x: 9,   z: -33 },
+  { room: 'classe3',        type: 'caca',      x: 15,  z: -33 },
+  { room: 'classe3',        type: 'poussiere', x: 11,  z: -28 },
+
+  { room: 'cour',           type: 'boss',      x: -4,  z: 14 },
+];
+
+// =====================================================================
 // Registre des niveaux
 // =====================================================================
 
@@ -198,6 +297,22 @@ export const LEVELS = [
     weapon: { build: 'aspirateur', meleeDamage: 35, meleeRange: 2.8 },
     coinBonus: 1,
     background: 0x10141c,
+  },
+  {
+    id: 3,
+    name: "L'école",
+    rooms: LEVEL3_ROOMS,
+    doors: LEVEL3_DOORS,
+    enemySpawns: LEVEL3_ENEMY_SPAWNS,
+    playerStart: { x: 0, z: -6 },                // dortoir
+    keyPosition: { x: 0, y: 1.05, z: -20 },      // sur le bureau de la salle des maîtres
+    lockedDoorId: 'dortoir_cour',
+    bossType: 'pizza',
+    bossRoom: 'cour',
+    bossLabel: 'BOSS PIZZA',
+    weapon: { build: 'aspirateur_ameliore', meleeDamage: 45, meleeRange: 3.0, meleeCooldown: 0.28 },
+    coinBonus: 2,
+    background: 0x1b2735,
   },
 ];
 

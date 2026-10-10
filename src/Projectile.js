@@ -8,6 +8,8 @@ const PROFILES = {
   poussiere:{ radius: 0.12, color: 0x888888, speed: 7, damage: 5 },
   viande:  { radius: 0.20, color: 0x8B0000, speed: 9, damage: 10 },
   boule_de_feu: { radius: 0.24, color: 0xff5500, speed: 9, damage: 11 },
+  spore:   { radius: 0.11, color: 0x76ff03, speed: 8.5, damage: 4 },
+  part_de_pizza: { radius: 0.26, color: 0xffa726, speed: 9.5, damage: 14 },
 };
 
 export default class Projectile {

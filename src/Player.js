@@ -63,6 +63,8 @@ export default class Player {
     this._baseMeleeDamage = cfg.meleeDamage;
     this.meleeDamage = cfg.meleeDamage * (this._boostTimer > 0 ? this._boostMult : 1);
     this.meleeRange = cfg.meleeRange;
+    // Cadence propre à l'arme (l'aspirateur amélioré frappe plus vite).
+    this.meleeCooldown = cfg.meleeCooldown ?? 0.5;
 
     if (this.weapon) {
       this.camera.remove(this.weapon);
@@ -72,7 +74,8 @@ export default class Player {
     }
 
     this.weapon = new THREE.Group();
-    if (cfg.build === 'aspirateur') this._buildAspirateur();
+    if (cfg.build === 'aspirateur_ameliore') this._buildAspirateurAmeliore();
+    else if (cfg.build === 'aspirateur') this._buildAspirateur();
     else this._buildPlumeau();
 
     // Position de repos à l'écran (bas-droite).
@@ -149,6 +152,66 @@ export default class Player {
     nozzle.position.set(0, 0.5, 0.07);
     nozzle.rotation.x = 0.25;
     this.weapon.add(nozzle);
+  }
+
+  // Aspirateur amélioré (niveau 3) : moteur turbo orange, embout élargi.
+  _buildAspirateurAmeliore() {
+    // Manche.
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x263238, roughness: 0.45 });
+    const handle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.032, 0.032, 0.5, 8), handleMat
+    );
+    handle.position.set(0, -0.12, 0);
+    this.weapon.add(handle);
+
+    // Corps moteur (bloc orange turbo).
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xff8f00, roughness: 0.4, metalness: 0.3 });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.24, 0.22), bodyMat);
+    body.position.set(0, 0.04, 0);
+    this.weapon.add(body);
+
+    // Double bande chromée.
+    const chromeMat = new THREE.MeshStandardMaterial({ color: 0xcfd8dc, roughness: 0.25, metalness: 0.7 });
+    for (const y of [0.1, -0.03]) {
+      const band = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.035, 0.23), chromeMat);
+      band.position.set(0, y, 0);
+      this.weapon.add(band);
+    }
+
+    // Turbine visible sur le flanc.
+    const turbine = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.07, 0.07, 0.06, 10), chromeMat
+    );
+    turbine.position.set(0.1, 0.04, 0.02);
+    turbine.rotation.z = Math.PI / 2;
+    this.weapon.add(turbine);
+
+    // Tube vers l'embout.
+    const tube = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, 0.34, 10), chromeMat
+    );
+    tube.position.set(0, 0.3, 0.02);
+    tube.rotation.x = 0.25;
+    this.weapon.add(tube);
+
+    // Embout élargi (aspiration renforcée).
+    const nozzleMat = new THREE.MeshStandardMaterial({ color: 0x1c262b, roughness: 0.55 });
+    const nozzle = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.14, 0.06, 0.18, 12, 1, true), nozzleMat
+    );
+    nozzle.position.set(0, 0.51, 0.07);
+    nozzle.rotation.x = 0.25;
+    this.weapon.add(nozzle);
+
+    // Diodes vertes : indicateur de suralimentation.
+    const ledMat = new THREE.MeshStandardMaterial({
+      color: 0x00e676, emissive: 0x00e676, emissiveIntensity: 1.4, roughness: 0.3,
+    });
+    for (const sx of [-0.05, 0.05]) {
+      const led = new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 6), ledMat);
+      led.position.set(sx, 0.13, 0.12);
+      this.weapon.add(led);
+    }
   }
 
   reset(x, z) {

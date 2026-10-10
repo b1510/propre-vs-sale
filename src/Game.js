@@ -7,8 +7,10 @@ import Player from './Player.js';
 import Projectile from './Projectile.js';
 import Caca from './enemies/Caca.js';
 import Poussiere from './enemies/Poussiere.js';
+import Microbe from './enemies/Microbe.js';
 import TacosBoss from './enemies/TacosBoss.js';
 import BurgerBoss from './enemies/BurgerBoss.js';
+import PizzaBoss from './enemies/PizzaBoss.js';
 import UI from './ui/UI.js';
 import Menu from './ui/Menu.js';
 import Shop, { SHOP_ITEMS } from './ui/Shop.js';
@@ -28,10 +30,19 @@ const WORLD_HZ = 12; // snapshot monde (host)
 const RESPAWN_DELAY = 3; // secondes avant réapparition en PvP
 
 // Couleurs de particules par type d'ennemi.
-const ENEMY_COLORS = { caca: 0x8B4513, poussiere: 0xAAAAAA, tacos: 0xD2691E, burger: 0xC8842A };
+const ENEMY_COLORS = {
+  caca: 0x8B4513, poussiere: 0xAAAAAA, microbe: 0x8BC34A,
+  tacos: 0xD2691E, burger: 0xC8842A, pizza: 0xE65100,
+};
 
 // Couleurs des projectiles distants (rendu côté non-host).
-const PROJ_COLORS = { caca: 0x6B3A2A, poussiere: 0x888888, viande: 0x8B0000, boule_de_feu: 0xff5500 };
+const PROJ_COLORS = {
+  caca: 0x6B3A2A, poussiere: 0x888888, spore: 0x76ff03,
+  viande: 0x8B0000, boule_de_feu: 0xff5500, part_de_pizza: 0xffa726,
+};
+
+// Classe de boss par type déclaré dans la config du niveau.
+const BOSS_CLASSES = { tacos: TacosBoss, burger: BurgerBoss, pizza: PizzaBoss };
 
 // Constantes des consommables/améliorations.
 const HEAL_AMOUNT = 60;
@@ -185,10 +196,10 @@ export default class Game {
       let e;
       if (s.type === 'caca') e = new Caca(s.x, s.z);
       else if (s.type === 'poussiere') e = new Poussiere(s.x, s.z);
+      else if (s.type === 'microbe') e = new Microbe(s.x, s.z);
       else if (s.type === 'boss') {
-        e = config.bossType === 'burger'
-          ? new BurgerBoss(s.x, s.z)
-          : new TacosBoss(s.x, s.z);
+        const BossClass = BOSS_CLASSES[config.bossType] || TacosBoss;
+        e = new BossClass(s.x, s.z);
         this.boss = e;
       }
       if (e) {

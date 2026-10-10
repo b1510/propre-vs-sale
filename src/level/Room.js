@@ -8,6 +8,9 @@ import {
 
 // Choisit la texture de sol selon le type de pièce.
 function pickFloorTexture(name, rx, ry) {
+  if (name === 'cour') {
+    return concreteWall(rx, ry);                      // cour : bitume
+  }
   if (name.startsWith('machines') || name.startsWith('dangereuse')) {
     return metalFloor(rx, ry);                       // usine : sol métal
   }
@@ -23,11 +26,18 @@ const WALLPAPER_TINT = {
   hall: 0xF1ECE0, salon: 0xF0E6D2, chambre1: 0xDCE6F2,
   chambre2: 0xE9DCF2, chambre3: 0xDDF0DE, salle_jeu: 0x99A2AE,
   grenier: 0xCFC2B0,
+  // Niveau 3 — l'école : tons pastel de salle de classe.
+  classe1: 0xFFF3D6, classe2: 0xDCF0F5, classe3: 0xE6F5DC, classe4: 0xFAE0E4,
+  salle_maitres: 0xE4E0D2, salle_activite: 0xFFEBC7, dortoir: 0xD3DCF0,
 };
 
 // Choisit la texture + le matériau des MURS selon la pièce.
 // Renvoie { set, color, normalScale, metalness, roughness }.
 function pickWallTexture(name) {
+  // Cour : mur d'enceinte en brique.
+  if (name === 'cour') {
+    return { set: brickWall(6, 3), color: 0xC9A38B, normalScale: 0.6, roughness: 1.0 };
+  }
   // Pièces carrelées : faïence métro brillante.
   if (name === 'cuisine' || name === 'salle_bains' ||
       name === 'sucree' || name === 'pause' || name.startsWith('toilettes')) {
@@ -55,6 +65,9 @@ function pickCeilTexture(name, rx, ry) {
   }
   if (name === 'grenier') {
     return { set: woodCeiling(2, 2), color: 0xFFFFFF, normalScale: 0.7 };   // lambris bois
+  }
+  if (name.startsWith('classe') || name === 'salle_activite') {
+    return { set: ceilingTile(rx, ry), color: 0xFFFFFF, normalScale: 0.5 }; // dalles d'école
   }
   return { set: ceilingPlaster(2, 2), color: 0xFAFAFA, normalScale: 0.4 };  // caissons
 }
@@ -97,12 +110,18 @@ export default class Room {
     });
 
     // Plafond : caissons (vie), dalles suspendues (usine) ou lambris (grenier).
-    const ceil = pickCeilTexture(name, 2, 2);
-    this._ceilMat = new THREE.MeshStandardMaterial({
-      color: ceil.color, roughness: 1.0,
-      map: ceil.set.map, normalMap: ceil.set.normalMap, roughnessMap: ceil.set.roughnessMap,
-      normalScale: new THREE.Vector2(ceil.normalScale, ceil.normalScale),
-    });
+    // Pièce extérieure : la dalle devient un ciel plat, insensible aux lumières
+    // et au brouillard, pour ne pas lire comme un plafond.
+    if (def.outdoor) {
+      this._ceilMat = new THREE.MeshBasicMaterial({ color: 0x8EC5E8, fog: false });
+    } else {
+      const ceil = pickCeilTexture(name, 2, 2);
+      this._ceilMat = new THREE.MeshStandardMaterial({
+        color: ceil.color, roughness: 1.0,
+        map: ceil.set.map, normalMap: ceil.set.normalMap, roughnessMap: ceil.set.roughnessMap,
+        normalScale: new THREE.Vector2(ceil.normalScale, ceil.normalScale),
+      });
+    }
 
     this._buildFloorCeil();
   }
@@ -176,6 +195,27 @@ export default class Room {
   }
 
   addLight() {
+    // Extérieur : lumière du jour. Le PointLight de portée 20 ne couvre pas une
+    // cour de 36×20, on passe donc sur hémisphérique + directionnelle + appoints.
+    if (this.def.outdoor) {
+      const sky = new THREE.HemisphereLight(0xBFD8FF, 0x6B7A55, 0.85);
+      sky.position.set(this.cx, ROOM_HEIGHT, this.cz);
+      this.group.add(sky);
+
+      const sun = new THREE.DirectionalLight(0xFFF4E0, 0.5);
+      sun.position.set(this.cx - 10, 12, this.cz - 8);
+      sun.target.position.set(this.cx, 0, this.cz);
+      this.group.add(sun);
+      this.group.add(sun.target);
+
+      for (const dx of [-9, 9]) {
+        const fill = new THREE.PointLight(0xffffff, 0.55, 24);
+        fill.position.set(this.cx + dx, 2.6, this.cz);
+        this.group.add(fill);
+      }
+      return;
+    }
+
     const light = new THREE.PointLight(0xffffff, 1, 20);
     light.position.set(this.cx, 2.5, this.cz);
     this.group.add(light);
@@ -204,6 +244,13 @@ export default class Room {
     if (this.name.startsWith('toilettes') && this.name !== 'toilettes') {
       this._furnishToilet(ab); return;
     }
+
+    // Niveau 3 — l'école.
+    if (this.name === 'cour')            { this._furnishCour(ab); return; }
+    if (this.name.startsWith('classe'))  { this._furnishClasse(ab); return; }
+    if (this.name === 'salle_maitres')   { this._furnishSalleMaitres(ab); return; }
+    if (this.name === 'salle_activite')  { this._furnishSalleActivite(ab); return; }
+    if (this.name === 'dortoir')         { this._furnishDortoir(ab); return; }
 
     switch (this.name) {
       case 'hall': {
@@ -590,5 +637,268 @@ export default class Room {
     ab(0.08, 0.76, 0.08, maxX - 1.32, 0.38, minZ + 0.36, 0xb0bec5);
     ab(0.06, 0.68, 0.58, maxX - 0.06, 1.38, minZ + 0.5, 0xb0bec5); // miroir
     ab(0.16, 0.16, 0.16, twcx + 0.52, 0.70, twcz - 0.28, 0xfafafa); // PQ
+  }
+
+  // ---------------------------------------------------------------
+  //  NIVEAU 3 — L'école
+  // ---------------------------------------------------------------
+
+  // Salle de classe : tableau, estrade + bureau du maître, 6 pupitres, casiers.
+  _furnishClasse(ab) {
+    const { minX, maxX, minZ } = this.def;
+    const cx = this.cx, cz = this.cz;
+
+    // Tableau noir + cadre en bois sur le mur nord.
+    ab(6.4, 1.9, 0.1, cx, 1.75, minZ + 0.2, 0x6d4c41);   // cadre
+    ab(6.0, 1.6, 0.06, cx, 1.75, minZ + 0.27, 0x25402f); // ardoise
+    ab(6.0, 0.12, 0.16, cx, 0.9, minZ + 0.3, 0x8d6e63);  // tablette à craies
+
+    // Estrade + bureau du maître.
+    ab(4.4, 0.12, 1.8, cx, 0.06, minZ + 1.9, 0x9e7b5a);
+    ab(1.9, 0.08, 0.85, cx, 0.86, minZ + 1.9, 0xa1887f);
+    for (const [ox, oz] of [[-0.85, -0.35], [0.85, -0.35], [-0.85, 0.35], [0.85, 0.35]]) {
+      ab(0.08, 0.74, 0.08, cx + ox, 0.49, minZ + 1.9 + oz, 0x795548);
+    }
+    ab(0.5, 0.3, 0.35, cx + 0.6, 1.05, minZ + 1.9, 0xef5350); // pile de cahiers
+
+    // 6 pupitres (2 rangées de 3) tournés vers le tableau.
+    const pupitre = (px, pz) => {
+      ab(1.1, 0.06, 0.6, px, 0.7, pz, 0xd7b98a);          // plateau
+      ab(0.07, 0.66, 0.07, px - 0.48, 0.35, pz - 0.22, 0x8d6e63);
+      ab(0.07, 0.66, 0.07, px + 0.48, 0.35, pz - 0.22, 0x8d6e63);
+      ab(0.07, 0.66, 0.07, px - 0.48, 0.35, pz + 0.22, 0x8d6e63);
+      ab(0.07, 0.66, 0.07, px + 0.48, 0.35, pz + 0.22, 0x8d6e63);
+      ab(0.5, 0.06, 0.45, px, 0.42, pz + 0.75, 0x42a5f5);  // assise de la chaise
+      ab(0.5, 0.5, 0.06, px, 0.7, pz + 0.98, 0x1e88e5);    // dossier
+      ab(0.05, 0.4, 0.05, px - 0.2, 0.21, pz + 0.62, 0x90a4ae);
+      ab(0.05, 0.4, 0.05, px + 0.2, 0.21, pz + 0.62, 0x90a4ae);
+      ab(0.22, 0.02, 0.3, px, 0.74, pz, 0xfafafa);         // cahier ouvert
+    };
+    for (const rz of [cz - 0.4, cz + 2.6]) {
+      for (const rx of [cx - 2.7, cx, cx + 2.7]) pupitre(rx, rz);
+    }
+
+    // Casiers muraux + affiches colorées.
+    ab(0.4, 1.5, 5.0, maxX - 0.3, 0.75, cz + 1, 0xbcaaa4);
+    for (let i = 0; i < 4; i++) {
+      ab(0.42, 0.06, 5.0, maxX - 0.3, 0.4 + i * 0.35, cz + 1, 0x8d6e63); // séparations
+    }
+    const affiches = [0xef5350, 0xffee58, 0x66bb6a, 0x42a5f5];
+    for (let i = 0; i < 4; i++) {
+      ab(0.04, 0.8, 0.6, minX + 0.15, 1.9, cz - 2 + i * 1.6, affiches[i]);
+    }
+
+    // Globe terrestre sur un petit meuble, près du bureau.
+    ab(0.5, 0.9, 0.5, minX + 1.0, 0.45, minZ + 1.2, 0x795548);
+    this._addCyl(0.03, 0.03, 0.5, minX + 1.0, 1.15, minZ + 1.2, 0xb0bec5);
+    const globe = new THREE.Mesh(
+      new THREE.SphereGeometry(0.26, 12, 12),
+      new THREE.MeshStandardMaterial({ color: 0x2196f3, roughness: 0.6 })
+    );
+    globe.position.set(minX + 1.0, 1.36, minZ + 1.2);
+    globe.rotation.z = 0.4;
+    this.group.add(globe);
+  }
+
+  // Salle des maîtres : grande table de réunion (porteuse de la clé), café,
+  // armoire à dossiers, canapé.
+  _furnishSalleMaitres(ab) {
+    const { minX, maxX, minZ, maxZ } = this.def;
+    const cx = this.cx;
+
+    // Table de réunion — le plateau est aligné sur keyPosition (0, 1.05, -20),
+    // la clé flotte juste au-dessus (même principe que la machine de machines2).
+    ab(3.4, 0.1, 1.6, 0, 0.95, -20, 0x8d6e63);
+    for (const [ox, oz] of [[-1.5, -0.6], [1.5, -0.6], [-1.5, 0.6], [1.5, 0.6]]) {
+      ab(0.12, 0.9, 0.12, ox, 0.45, -20 + oz, 0x6d4c41);
+    }
+    // 4 chaises autour.
+    for (const [sx, sz] of [[-1.1, -1.3], [1.1, -1.3], [-1.1, 1.3], [1.1, 1.3]]) {
+      ab(0.5, 0.06, 0.5, sx, 0.46, -20 + sz, 0x546e7a);
+      ab(0.5, 0.55, 0.06, sx, 0.76, -20 + sz + (sz < 0 ? -0.24 : 0.24), 0x455a64);
+    }
+    // Tasses + dossiers sur la table.
+    this._addCyl(0.06, 0.05, 0.11, -0.7, 1.06, -20.3, 0xffffff);
+    this._addCyl(0.06, 0.05, 0.11, 0.8, 1.06, -19.7, 0xef9a9a);
+    ab(0.3, 0.05, 0.4, -1.2, 1.02, -19.8, 0xfff59d);
+
+    // Machine à café + plan de travail.
+    ab(1.6, 0.9, 0.6, minX + 1.1, 0.45, minZ + 0.6, 0xb0bec5);
+    ab(0.5, 0.5, 0.4, minX + 1.1, 1.15, minZ + 0.6, 0x37474f);
+    this._addCyl(0.08, 0.08, 0.2, minX + 1.5, 1.0, minZ + 0.7, 0xffffff);
+
+    // Armoire à dossiers.
+    ab(1.2, 2.0, 0.6, maxX - 1.0, 1.0, minZ + 0.5, 0x78909c);
+    for (let i = 0; i < 4; i++) {
+      ab(1.1, 0.05, 0.05, maxX - 1.0, 0.4 + i * 0.48, minZ + 0.22, 0x455a64);
+    }
+
+    // Canapé du fond.
+    ab(2.6, 0.4, 0.9, cx, 0.2, maxZ - 1.0, 0x5d4037);
+    ab(2.6, 0.6, 0.25, cx, 0.6, maxZ - 0.6, 0x6d4c41);
+    ab(0.25, 0.5, 0.9, cx - 1.3, 0.55, maxZ - 1.0, 0x6d4c41);
+    ab(0.25, 0.5, 0.9, cx + 1.3, 0.55, maxZ - 1.0, 0x6d4c41);
+  }
+
+  // Salle d'activité : tapis de motricité, bacs à jouets, chevalets, cubes.
+  _furnishSalleActivite(ab) {
+    const { minX, maxX, minZ, maxZ } = this.def;
+    const cx = this.cx, cz = this.cz;
+
+    // Tapis de motricité colorés (damier 2×2).
+    const tapis = [0xef5350, 0xffee58, 0x66bb6a, 0x42a5f5];
+    for (let i = 0; i < 4; i++) {
+      ab(2.0, 0.04, 2.0, cx - 1.1 + (i % 2) * 2.2, 0.02, cz + 1 - Math.floor(i / 2) * 2.2, tapis[i]);
+    }
+
+    // Bacs à jouets alignés au mur nord.
+    for (let i = 0; i < 3; i++) {
+      const bx = minX + 2.0 + i * 2.2;
+      ab(1.4, 0.5, 0.9, bx, 0.25, minZ + 0.8, 0xffb74d);
+      ab(1.2, 0.06, 0.7, bx, 0.52, minZ + 0.8, 0xffe0b2);
+      // Quelques jouets qui dépassent.
+      ab(0.25, 0.25, 0.25, bx - 0.3, 0.62, minZ + 0.8, tapis[i]);
+      this._addCyl(0.14, 0.14, 0.2, bx + 0.3, 0.6, minZ + 0.8, tapis[(i + 1) % 4]);
+    }
+
+    // 2 chevalets de peinture (trépied + plateau).
+    for (const ex of [maxX - 1.6, maxX - 3.6]) {
+      ab(0.08, 1.5, 0.08, ex - 0.4, 0.75, minZ + 3.0, 0xa1887f);
+      ab(0.08, 1.5, 0.08, ex + 0.4, 0.75, minZ + 3.0, 0xa1887f);
+      ab(0.08, 1.5, 0.08, ex, 0.75, minZ + 3.5, 0xa1887f);
+      ab(1.0, 1.0, 0.06, ex, 1.2, minZ + 3.0, 0xfafafa);   // feuille
+      ab(1.05, 0.1, 0.16, ex, 0.66, minZ + 2.95, 0x8d6e63); // porte-pinceaux
+    }
+
+    // Tour de cubes empilés.
+    for (let i = 0; i < 4; i++) {
+      ab(0.5, 0.5, 0.5, minX + 1.4, 0.25 + i * 0.5, maxZ - 1.4, tapis[i]);
+    }
+
+    // Tableau d'activités.
+    ab(3.0, 1.4, 0.08, cx + 1, 1.8, maxZ - 0.15, 0xfff8e1);
+    ab(3.2, 0.12, 0.12, cx + 1, 2.55, maxZ - 0.2, 0x8d6e63);
+  }
+
+  // Dortoir : 6 petits lits en 2 rangées, chevets, veilleuse.
+  _furnishDortoir(ab) {
+    const { minX, maxX, minZ } = this.def;
+    const cx = this.cx;
+
+    const couvertures = [0xef9a9a, 0xa5d6a7, 0x90caf9, 0xffcc80, 0xce93d8, 0x80deea];
+    const lit = (lx, lz, color) => {
+      ab(1.0, 0.28, 2.0, lx, 0.14, lz, 0x8d6e63);          // sommier
+      ab(0.95, 0.16, 1.9, lx, 0.36, lz, 0xfafafa);         // matelas
+      ab(0.95, 0.12, 1.2, lx, 0.5, lz + 0.3, color);       // couverture
+      ab(0.6, 0.12, 0.32, lx, 0.5, lz - 0.72, 0xffffff);   // oreiller
+      ab(1.05, 0.6, 0.1, lx, 0.5, lz - 1.0, 0x795548);     // tête de lit
+    };
+
+    // Rangée ouest et rangée est, tête contre les murs latéraux.
+    for (let i = 0; i < 3; i++) {
+      const lz = minZ + 2.2 + i * 3.2;
+      lit(minX + 1.4, lz, couvertures[i]);
+      lit(maxX - 1.4, lz, couvertures[i + 3]);
+    }
+
+    // Tables de chevet entre les lits.
+    for (let i = 0; i < 2; i++) {
+      const nz = minZ + 3.8 + i * 3.2;
+      ab(0.6, 0.5, 0.5, minX + 1.4, 0.25, nz, 0xa1887f);
+      ab(0.6, 0.5, 0.5, maxX - 1.4, 0.25, nz, 0xa1887f);
+    }
+
+    // Veilleuse au centre (lampe + halo doux).
+    this._addCyl(0.18, 0.26, 0.4, cx, 0.5, minZ + 1.2, 0xfff59d);
+    ab(0.5, 0.3, 0.5, cx, 0.15, minZ + 1.2, 0x8d6e63);
+    const veilleuse = new THREE.PointLight(0xffe082, 0.5, 7);
+    veilleuse.position.set(cx, 0.9, minZ + 1.2);
+    this.group.add(veilleuse);
+
+    // Tapis central.
+    ab(3.0, 0.04, 6.0, cx, 0.02, this.cz, 0x7986cb);
+  }
+
+  // Cour de récréation : 2 balançoires, 3 bancs, terrain de foot avec cages.
+  // Coordonnées en monde (la cour va de X −18..18 / Z 0..20).
+  _furnishCour(ab) {
+    // --- Terrain de foot : pelouse + marquages ---
+    ab(15, 0.04, 14, 8.5, 0.02, 11, 0x4c8c3f);              // pelouse
+    const ligne = (w, d, x, z) => ab(w, 0.02, d, x, 0.05, z, 0xf5f5f5);
+    ligne(14.2, 0.14, 8.5, 4.4);    // ligne de but nord
+    ligne(14.2, 0.14, 8.5, 17.6);   // ligne de but sud
+    ligne(0.14, 13.4, 1.4, 11);     // touche ouest
+    ligne(0.14, 13.4, 15.6, 11);    // touche est
+    ligne(14.2, 0.14, 8.5, 11);     // ligne médiane
+    // Rond central (12 segments).
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      ab(0.5, 0.02, 0.16, 8.5 + Math.cos(a) * 2.0, 0.05, 11 + Math.sin(a) * 2.0, 0xf5f5f5);
+    }
+
+    // --- 2 cages (poteaux + barre + filet suggéré) ---
+    const cage = (gz, back) => {
+      ab(0.14, 2.0, 0.14, 6.7, 1.0, gz, 0xfafafa);          // poteau gauche
+      ab(0.14, 2.0, 0.14, 10.3, 1.0, gz, 0xfafafa);         // poteau droit
+      ab(3.74, 0.14, 0.14, 8.5, 2.0, gz, 0xfafafa);         // barre transversale
+      // Filet : barres verticales fines en retrait.
+      for (let i = 0; i < 5; i++) {
+        ab(0.05, 1.9, 0.05, 7.0 + i * 0.75, 0.95, gz + back * 0.7, 0xe0e0e0);
+      }
+      ab(3.6, 0.05, 0.05, 8.5, 1.9, gz + back * 0.7, 0xe0e0e0);
+    };
+    cage(4.6, -1);
+    cage(17.4, 1);
+
+    // Ballon posé sur le rond central.
+    const ballon = new THREE.Mesh(
+      new THREE.SphereGeometry(0.22, 12, 12),
+      new THREE.MeshStandardMaterial({ color: 0xfafafa, roughness: 0.6 })
+    );
+    ballon.position.set(8.5, 0.24, 11);
+    this.group.add(ballon);
+
+    // --- 2 balançoires (portique en A + chaînes + assise) ---
+    const balancoire = (bz) => {
+      // 4 montants inclinés formant deux A.
+      for (const dz of [-0.9, 0.9]) {
+        for (const dx of [-1.1, 1.1]) {
+          const m = this._addCyl(0.07, 0.09, 2.6, -14.5 + dx, 1.25, bz + dz, 0x546e7a, 0.5);
+          m.rotation.z = dx > 0 ? -0.22 : 0.22;
+          m.rotation.x = dz > 0 ? -0.18 : 0.18;
+        }
+      }
+      // Barre transversale.
+      const barre = this._addCyl(0.08, 0.08, 2.4, -14.5, 2.42, bz, 0x455a64, 0.5);
+      barre.rotation.x = Math.PI / 2;
+      // 2 chaînes + assise.
+      this._addCyl(0.022, 0.022, 1.55, -14.9, 1.63, bz, 0xb0bec5, 0.3);
+      this._addCyl(0.022, 0.022, 1.55, -14.1, 1.63, bz, 0xb0bec5, 0.3);
+      ab(1.0, 0.08, 0.34, -14.5, 0.86, bz, 0xd84315);
+    };
+    balancoire(5);
+    balancoire(9.5);
+
+    // --- 3 bancs (assise + dossier + piètements) ---
+    const banc = (bx, bz) => {
+      ab(2.0, 0.1, 0.5, bx, 0.45, bz, 0x8d6e63);            // assise
+      ab(2.0, 0.55, 0.1, bx, 0.75, bz - 0.22, 0x795548);    // dossier
+      ab(0.12, 0.42, 0.5, bx - 0.85, 0.21, bz, 0x455a64);
+      ab(0.12, 0.42, 0.5, bx + 0.85, 0.21, bz, 0x455a64);
+    };
+    banc(-9, 2.2);
+    banc(-2, 2.2);
+    banc(-15, 15);
+
+    // --- Marelle peinte près des bancs ---
+    for (let i = 0; i < 5; i++) {
+      ab(1.0, 0.02, 1.0, -6.5, 0.04, 5.5 + i * 1.1, i % 2 ? 0xf5f5f5 : 0xffe082);
+    }
+
+    // Quelques arbustes en pot le long du mur d'enceinte sud.
+    for (const px of [-16, -11, 12, 16.5]) {
+      ab(0.7, 0.5, 0.7, px, 0.25, 18.8, 0x8d6e63);
+      this._addCone(0.55, 1.3, px, 1.15, 18.8, 0x388e3c, false);
+    }
   }
 }
