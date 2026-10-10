@@ -106,6 +106,7 @@ export default class Game {
     });
 
     this.menu.onPlay = () => this.startGame();
+    this.menu.setupLevelSelect(LEVELS, (i) => this.startGame(i));
     this.menu.onRestart = () => this.startGame();
     this.menu.onMultiplayer = () => this._openLobby();
 
@@ -223,10 +224,11 @@ export default class Game {
     this._enterRoom(this.level.getRoomAt(this.player.position.x, this.player.position.z));
   }
 
-  startGame() {
+  startGame(startLevel = 0) {
     this.sound.resume(); // débloque l'audio (geste utilisateur)
     if (this.multiplayer) this._teardownMultiplayer(); // repart en solo proprement
-    this.levelIndex = 0;
+    this.levelIndex = startLevel;
+    this._cheated = startLevel > 0; // partie via le code secret : hors classement
     this.coins = 0;
     this.runStartTime = performance.now(); // pour le bonus de rapidité du score
     this.inventory = { heal: 0, damage: 0 };
@@ -275,6 +277,7 @@ export default class Game {
       timeBonus;
     return {
       score,
+      cheated: !!this._cheated,
       coins: this.coins,
       level: levelNum,
       time_sec: Math.round(timeSec),

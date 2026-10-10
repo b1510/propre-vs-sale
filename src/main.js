@@ -1,6 +1,9 @@
 import Game from './Game.js';
 
 // Point d'entrée : instancie le jeu une fois le DOM prêt.
+const versionEl = document.getElementById('appVersion');
+if (versionEl) versionEl.textContent = `v${__APP_VERSION__} · ${__BUILD_DATE__}`;
+
 const container = document.getElementById('app');
 const game = new Game(container);
 

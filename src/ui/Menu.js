@@ -76,6 +76,48 @@ export default class Menu {
     );
   }
 
+  // Konami code (↑↑↓↓←→←→ B A) ou 5 appuis rapides sur la version (mobile) :
+  // affiche le sélecteur de niveau. levels = [{ id, name }].
+  setupLevelSelect(levels, onPick) {
+    const wrap = document.getElementById('levelSelect');
+    if (!wrap) return;
+    wrap.innerHTML = '<div class="lb-title">🎮 Choix du niveau</div>';
+    levels.forEach((l, i) => {
+      const b = document.createElement('button');
+      b.className = 'secondary';
+      b.textContent = `${l.id}. ${l.name}`;
+      b.addEventListener('click', () => onPick(i));
+      wrap.appendChild(b);
+    });
+
+    const unlock = () => {
+      if (this.menuScreen.classList.contains('hidden')) return;
+      wrap.classList.remove('hidden');
+    };
+
+    const KONAMI = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft',
+      'ArrowRight', 'ArrowLeft', 'ArrowRight', 'b', 'a'];
+    let pos = 0;
+    window.addEventListener('keydown', (e) => {
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (k === KONAMI[pos]) {
+        pos++;
+        if (pos === KONAMI.length) { pos = 0; unlock(); }
+      } else {
+        pos = k === KONAMI[0] ? 1 : 0;
+      }
+    });
+
+    const ver = document.getElementById('appVersion');
+    let taps = 0, last = 0;
+    if (ver) ver.addEventListener('click', () => {
+      const now = performance.now();
+      taps = now - last < 700 ? taps + 1 : 1;
+      last = now;
+      if (taps >= 5) { taps = 0; unlock(); }
+    });
+  }
+
   showMenu() {
     this.menuScreen.classList.remove('hidden');
     this.gameOverScreen.classList.add('hidden');
@@ -121,7 +163,8 @@ export default class Menu {
     block.score.textContent = this._scoreLine(stats);
 
     // Pas de backend configuré : on masque le classement, on garde le score local.
-    if (!this.leaderboard || !this.leaderboard.isConfigured()) {
+    // Partie lancée via le code secret : pas de classement.
+    if (stats.cheated || !this.leaderboard || !this.leaderboard.isConfigured()) {
       if (block.wrap) block.wrap.classList.add('hidden');
       return;
     }

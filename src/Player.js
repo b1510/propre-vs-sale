@@ -295,7 +295,7 @@ export default class Player {
     const tl = this.input.consumeTouchLook();
     const gl = this.input.gpLook;
     const GP_LOOK = 2.8;                       // sensibilité stick droit (rad/s)
-    const TOUCH_LOOK = MOUSE_SENSITIVITY * 1.3; // sensibilité regard tactile
+    const TOUCH_LOOK = MOUSE_SENSITIVITY * 3.2; // sensibilité regard tactile
     this.yaw   -= md.x * MOUSE_SENSITIVITY + gl.x * GP_LOOK * delta + tl.x * TOUCH_LOOK;
     this.pitch -= md.y * MOUSE_SENSITIVITY + gl.y * GP_LOOK * delta + tl.y * TOUCH_LOOK;
     const limit = Math.PI / 2 - 0.05;

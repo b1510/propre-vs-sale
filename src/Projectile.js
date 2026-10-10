@@ -12,11 +12,14 @@ const PROFILES = {
   part_de_pizza: { radius: 0.26, color: 0xffa726, speed: 9.5, damage: 14 },
 };
 
+const DAMAGE_MULT = 1.4;
+const SPEED_MULT = 1.15;
+
 export default class Projectile {
   constructor(type, origin, targetPos) {
     const p = PROFILES[type] || PROFILES.caca;
     this.type = type;
-    this.damage = p.damage;
+    this.damage = Math.round(p.damage * DAMAGE_MULT);
     this.radius = p.radius;
     this.alive = true;
     this.life = 4; // secondes
@@ -29,7 +32,7 @@ export default class Projectile {
     this.mesh.position.copy(origin);
 
     const dir = new THREE.Vector3().subVectors(targetPos, origin).normalize();
-    this.velocity = dir.multiplyScalar(p.speed);
+    this.velocity = dir.multiplyScalar(p.speed * SPEED_MULT);
   }
 
   update(delta) {

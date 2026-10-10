@@ -122,7 +122,8 @@
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       background: #07080c; color: #fff; text-align: center;
     }
-    .fullscreen.hidden { display: none; }
+    .fullscreen.hidden, #levelSelect.hidden { display: none; }
+    #levelSelect { margin-top: 18px; }
     .fullscreen h1 {
       font-size: 64px; letter-spacing: 4px; margin-bottom: 12px;
       text-transform: uppercase;
@@ -354,6 +355,8 @@
     <button id="btnPlay">JOUER</button>
     <button id="btnMultiplayer">JOUER EN LIGNE</button>
     <button id="btnQuit" class="secondary">QUITTER</button>
+    <div id="levelSelect" class="hidden"></div>
+    <div id="appVersion" style="margin-top:18px;font-size:13px;color:#607d8b"></div>
     <div class="leaderboard" id="menuLeaderboard">
       <div class="lb-title">🏆 Classement</div>
       <ol class="leaderboard-list" id="menuBoard"></ol>

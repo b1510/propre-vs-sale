@@ -4,16 +4,20 @@ import * as THREE from 'three';
 // Les sous-classes définissent le visuel (_buildMesh), les stats, et
 // fournissent un projectile via shoot() consommé par Game.
 
-export const STATE = { IDLE: 'idle', CHASE: 'chase', ATTACK: 'attack' };
+// Réglages de difficulté globaux (ennemis + boss).
+const FIRE_RATE_MULT = 0.55; // < 1 = tirent plus souvent
+const SPEED_MULT = 1.25;
+
+export const STATE ={ IDLE: 'idle', CHASE: 'chase', ATTACK: 'attack' };
 
 export default class Enemy {
   constructor(opts) {
     this.hp = opts.hp;
     this.maxHp = opts.hp;
-    this.speed = opts.speed;
+    this.speed = opts.speed * SPEED_MULT;
     this.sightRange = opts.sightRange ?? 15;
     this.attackRange = opts.attackRange;
-    this.attackCooldown = opts.attackCooldown;
+    this.attackCooldown = opts.attackCooldown * FIRE_RATE_MULT;
     this.coinDrop = opts.coinDrop;
     this.projectileType = opts.projectileType;
     this.radius = opts.radius ?? 0.5;
